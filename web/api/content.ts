@@ -152,6 +152,26 @@ type ArticleImageUploadRequest = {
   size?: number;
 };
 
+type DocumentRow = {
+  id: string;
+  kind: string;
+  title: string;
+  description: string | null;
+  event_date: string | null;
+  year: number | null;
+  file_url: string | null;
+  file_path: string | null;
+  file_name: string | null;
+  file_size: number | null;
+  external_url: string | null;
+  cover_url: string | null;
+  visibility: string;
+  published: boolean;
+  order_index: number;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
 type AfterpartyOrderStatus = 'pending' | 'approved' | 'rejected';
 
 type AfterpartyAdminOrderItem = {
@@ -186,6 +206,18 @@ type AfterpartyAdminOrder = {
 const AFTERPARTY_RECEIPTS_BUCKET = 'afterparty-receipts';
 const CONTENT_ARTICLE_IMAGES_BUCKET = 'content-article-images';
 const CONTENT_ARTICLE_ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+const CONTENT_DOCUMENTS_BUCKET = 'content-documents';
+const CONTENT_DOCUMENT_ALLOWED_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png', 'image/webp']);
+const CONTENT_DOCUMENT_MAX_SIZE = 50 * 1024 * 1024;
+const CONTENT_DOCUMENT_KINDS = new Set([
+  'sbornicek',
+  'propozice',
+  'zapis-snem',
+  'zapis-stab',
+  'prihlaska',
+  'ostatni',
+]);
+const CONTENT_DOCUMENT_VISIBILITIES = new Set(['public', 'internal']);
 const PUBLIC_ARTICLE_PAGE_SIZE = 12;
 const PUBLIC_ARTICLE_MAX_PAGE_SIZE = 50;
 const SITEMAP_BASE_URL = 'https://www.zelenaliga.cz';
@@ -1500,6 +1532,312 @@ async function handleAdminArticleImages(req: any, res: any) {
   }
 }
 
+function resolveDocumentExtension(fileName: string, contentType: string): string {
+  const extensionFromName = fileName
+    .split('.')
+    .pop()
+    ?.toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+  if (extensionFromName && ['pdf', 'jpg', 'jpeg', 'png', 'webp'].includes(extensionFromName)) {
+    return extensionFromName === 'jpg' ? 'jpeg' : extensionFromName;
+  }
+  if (contentType === 'image/png') return 'png';
+  if (contentType === 'image/webp') return 'webp';
+  if (contentType === 'image/jpeg') return 'jpeg';
+  return 'pdf';
+}
+
+function parseDocumentPayload(payload: Record<string, unknown>, partial: boolean): Record<string, unknown> {
+  const update: Record<string, unknown> = {};
+  const readText = (key: string) => {
+    if (typeof payload[key] !== 'string') {
+      return;
+    }
+    const value = (payload[key] as string).trim();
+    update[key] = value.length > 0 ? value : null;
+  };
+
+  if (typeof payload.title === 'string') {
+    update.title = payload.title.trim();
+  }
+  if (typeof payload.kind === 'string' && CONTENT_DOCUMENT_KINDS.has(payload.kind)) {
+    update.kind = payload.kind;
+  } else if (!partial) {
+    update.kind = 'ostatni';
+  }
+  if (typeof payload.visibility === 'string' && CONTENT_DOCUMENT_VISIBILITIES.has(payload.visibility)) {
+    update.visibility = payload.visibility;
+  }
+  if (typeof payload.published === 'boolean') {
+    update.published = payload.published;
+  }
+  if (payload.year === null) {
+    update.year = null;
+  } else if (typeof payload.year === 'number' && Number.isFinite(payload.year)) {
+    update.year = Math.trunc(payload.year);
+  }
+  if (payload.file_size === null) {
+    update.file_size = null;
+  } else if (typeof payload.file_size === 'number' && Number.isFinite(payload.file_size)) {
+    update.file_size = Math.trunc(payload.file_size);
+  }
+  if (typeof payload.order_index === 'number' && Number.isFinite(payload.order_index)) {
+    update.order_index = Math.trunc(payload.order_index);
+  }
+
+  readText('description');
+  readText('event_date');
+  readText('file_url');
+  readText('file_path');
+  readText('file_name');
+  readText('external_url');
+  readText('cover_url');
+
+  return update;
+}
+
+// Interní dokumenty zůstávají v seznamu, ale odkazy na ně ven neposíláme.
+function toPublicDocument(row: DocumentRow) {
+  const restricted = row.visibility === 'internal';
+  return {
+    id: row.id,
+    kind: row.kind,
+    title: row.title,
+    description: row.description,
+    eventDate: row.event_date,
+    year: row.year,
+    fileUrl: restricted ? null : row.file_url,
+    fileName: restricted ? null : row.file_name,
+    fileSize: restricted ? null : row.file_size,
+    externalUrl: restricted ? null : row.external_url,
+    coverUrl: row.cover_url,
+    orderIndex: row.order_index,
+    restricted,
+  };
+}
+
+async function handlePublicDocuments(req: any, res: any) {
+  if (req.method !== 'GET') {
+    res.status(405).json({ error: 'Method not allowed' });
+    return;
+  }
+  res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
+  try {
+    const supabase = getSupabaseAdminClient();
+    const { data, error } = await supabase
+      .from('content_documents')
+      .select('*')
+      .eq('published', true)
+      .order('order_index', { ascending: true })
+      .order('event_date', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false });
+    if (error) {
+      // Dokud není migrace nasazená, tváříme se jako prázdný seznam, ať web nespadne.
+      if (typeof (error as any).code === 'string' && (error as any).code === '42P01') {
+        res.status(200).json({ documents: [] });
+        return;
+      }
+      res.status(500).json({ error: 'Failed to load documents.' });
+      return;
+    }
+    res.status(200).json({ documents: ((data ?? []) as DocumentRow[]).map(toPublicDocument) });
+  } catch (error) {
+    console.error('[api/content/documents] failed', error);
+    res.status(500).json({ error: 'Failed to load documents.' });
+  }
+}
+
+async function handleAdminDocuments(req: any, res: any) {
+  if (!requireEditor(req, res)) {
+    return;
+  }
+  const supabase = getSupabaseAdminClient();
+
+  if (req.method === 'GET') {
+    const { data, error } = await supabase
+      .from('content_documents')
+      .select('*')
+      .order('event_date', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false });
+    if (error) {
+      res.status(500).json({ error: 'Nepodařilo se načíst dokumenty.' });
+      return;
+    }
+    res.status(200).json({ documents: data ?? [] });
+    return;
+  }
+
+  if (req.method === 'POST') {
+    const payload = resolveBody(req);
+    const values = parseDocumentPayload(payload, false);
+    if (typeof values.title !== 'string' || values.title.length === 0) {
+      res.status(400).json({ error: 'Chybí název dokumentu.' });
+      return;
+    }
+    if (!values.file_url && !values.external_url) {
+      res.status(400).json({ error: 'Vyplň soubor nebo odkaz.' });
+      return;
+    }
+
+    const { data, error } = await supabase.from('content_documents').insert(values).select('*').single();
+    if (error) {
+      res.status(500).json({ error: 'Nepodařilo se uložit dokument.' });
+      return;
+    }
+    res.status(200).json({ document: data });
+    return;
+  }
+
+  res.status(405).json({ error: 'Method not allowed' });
+}
+
+async function handleAdminDocument(req: any, res: any, id: string) {
+  if (!requireEditor(req, res)) {
+    return;
+  }
+  const supabase = getSupabaseAdminClient();
+
+  if (req.method === 'PUT') {
+    const payload = resolveBody(req);
+    const update = parseDocumentPayload(payload, true);
+    if (typeof update.title === 'string' && update.title.length === 0) {
+      res.status(400).json({ error: 'Chybí název dokumentu.' });
+      return;
+    }
+    if (Object.keys(update).length === 0) {
+      res.status(400).json({ error: 'Není co uložit.' });
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('content_documents')
+      .update(update)
+      .eq('id', id)
+      .select('*')
+      .single();
+    if (error) {
+      res.status(500).json({ error: 'Nepodařilo se uložit dokument.' });
+      return;
+    }
+    res.status(200).json({ document: data });
+    return;
+  }
+
+  if (req.method === 'DELETE') {
+    const { data: existing } = await supabase
+      .from('content_documents')
+      .select('file_path')
+      .eq('id', id)
+      .maybeSingle();
+
+    const { error } = await supabase.from('content_documents').delete().eq('id', id);
+    if (error) {
+      res.status(500).json({ error: 'Nepodařilo se smazat dokument.' });
+      return;
+    }
+
+    const filePath = (existing as { file_path?: string | null } | null)?.file_path;
+    if (filePath) {
+      const removal = await supabase.storage.from(CONTENT_DOCUMENTS_BUCKET).remove([filePath]);
+      if (removal.error) {
+        // Záznam je pryč, osiřelý soubor v bucketu nebrání dalšímu provozu.
+        console.error('[api/content/admin/documents] failed to remove file', removal.error);
+      }
+    }
+
+    res.status(200).json({ ok: true });
+    return;
+  }
+
+  res.status(405).json({ error: 'Method not allowed' });
+}
+
+async function handleAdminDocumentUpload(req: any, res: any) {
+  if (!requireEditor(req, res)) {
+    return;
+  }
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Method not allowed' });
+    return;
+  }
+
+  const payload = resolveBody(req);
+  const filesRaw = Array.isArray(payload.files) ? payload.files : [];
+  if (filesRaw.length === 0) {
+    res.status(400).json({ error: 'Chybí soubory pro upload.' });
+    return;
+  }
+  if (filesRaw.length > 10) {
+    res.status(400).json({ error: 'Najednou můžeš nahrát maximálně 10 souborů.' });
+    return;
+  }
+
+  const files: ArticleImageUploadRequest[] = [];
+  for (const entry of filesRaw) {
+    if (!entry || typeof entry !== 'object') {
+      continue;
+    }
+    const name = typeof (entry as any).name === 'string' ? (entry as any).name.trim() : '';
+    const type = typeof (entry as any).type === 'string' ? (entry as any).type.trim().toLowerCase() : '';
+    const size = typeof (entry as any).size === 'number' ? (entry as any).size : undefined;
+    if (!name || !type) {
+      continue;
+    }
+    files.push({ name, type, size });
+  }
+
+  if (files.length === 0) {
+    res.status(400).json({ error: 'Neplatný seznam souborů.' });
+    return;
+  }
+
+  const invalidType = files.find((file) => !CONTENT_DOCUMENT_ALLOWED_TYPES.has(file.type));
+  if (invalidType) {
+    res.status(400).json({ error: `Typ souboru ${invalidType.type} není povolený. Nahraj PDF nebo obrázek.` });
+    return;
+  }
+  const tooLarge = files.find((file) => typeof file.size === 'number' && file.size > CONTENT_DOCUMENT_MAX_SIZE);
+  if (tooLarge) {
+    res.status(400).json({ error: `Soubor ${tooLarge.name} je větší než 50 MB.` });
+    return;
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const now = new Date();
+  const year = String(now.getFullYear());
+  const stamp = now.getTime();
+
+  try {
+    const uploads = [];
+    for (let index = 0; index < files.length; index += 1) {
+      const file = files[index];
+      const ext = resolveDocumentExtension(file.name, file.type);
+      const stem = slugify(file.name.replace(/\.[^.]+$/, '')) || 'dokument';
+      const random = Math.random().toString(36).slice(2, 10);
+      const path = `dokumenty/${year}/${stamp}-${index}-${random}-${stem.slice(0, 80)}.${ext}`;
+      const signed = await supabase.storage
+        .from(CONTENT_DOCUMENTS_BUCKET)
+        .createSignedUploadUrl(path, { upsert: false });
+      if (signed.error || !signed.data) {
+        throw signed.error ?? new Error('Failed to create signed upload URL.');
+      }
+      const publicUrl = supabase.storage.from(CONTENT_DOCUMENTS_BUCKET).getPublicUrl(path).data.publicUrl;
+      uploads.push({
+        fileName: file.name,
+        contentType: file.type,
+        path,
+        token: signed.data.token,
+        publicUrl,
+      });
+    }
+
+    res.status(200).json({ uploads });
+  } catch (error) {
+    console.error('[api/content/admin/document-upload] failed to prepare upload', error);
+    res.status(500).json({ error: 'Nepodařilo se připravit upload souborů.' });
+  }
+}
+
 async function handlePublicLeague(req: any, res: any) {
   if (req.method !== 'GET') {
     res.status(405).json({ error: 'Method not allowed' });
@@ -1769,6 +2107,11 @@ export default async function handler(req: any, res: any) {
     return;
   }
 
+  if (segments[0] === 'documents') {
+    await handlePublicDocuments(req, res);
+    return;
+  }
+
   if (segments[0] === 'admin') {
     const action = segments[1] ?? '';
     if (action === 'session') {
@@ -1795,6 +2138,20 @@ export default async function handler(req: any, res: any) {
     }
     if (action === 'article-images') {
       await handleAdminArticleImages(req, res);
+      return;
+    }
+    if (action === 'documents') {
+      if (segments.length === 2) {
+        await handleAdminDocuments(req, res);
+        return;
+      }
+      if (segments.length >= 3) {
+        await handleAdminDocument(req, res, segments[2]);
+        return;
+      }
+    }
+    if (action === 'document-upload') {
+      await handleAdminDocumentUpload(req, res);
       return;
     }
     if (action === 'import') {

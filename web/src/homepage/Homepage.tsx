@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
   type ChangeEvent,
+  type DragEvent,
   type FormEvent,
   type SyntheticEvent,
 } from 'react';
@@ -161,6 +162,46 @@ const SCHEDULE_KIND_LABELS: Record<ScheduleEventKind, string> = {
   assembly: 'Sněm',
   staff: 'Štáb',
 };
+
+type SptoDocumentKind = 'sbornicek' | 'propozice' | 'zapis-snem' | 'zapis-stab' | 'prihlaska' | 'ostatni';
+
+type SptoDocument = {
+  id: string;
+  kind: SptoDocumentKind;
+  title: string;
+  description: string | null;
+  eventDate: string | null;
+  year: number | null;
+  fileUrl: string | null;
+  fileName: string | null;
+  fileSize: number | null;
+  externalUrl: string | null;
+  coverUrl: string | null;
+  orderIndex: number;
+  restricted: boolean;
+};
+
+const DOCUMENT_KIND_LABELS: Record<SptoDocumentKind, string> = {
+  sbornicek: 'Sborníček',
+  propozice: 'Propozice',
+  'zapis-snem': 'Zápis ze sněmu',
+  'zapis-stab': 'Zápis ze štábu',
+  prihlaska: 'Přihláška',
+  ostatni: 'Dokument',
+};
+
+const DOCUMENT_KIND_ORDER: SptoDocumentKind[] = [
+  'propozice',
+  'prihlaska',
+  'zapis-snem',
+  'zapis-stab',
+  'sbornicek',
+  'ostatni',
+];
+
+const CONTENT_DOCUMENTS_BUCKET = 'content-documents';
+const CONTENT_DOCUMENT_ACCEPT = 'application/pdf,image/jpeg,image/png,image/webp';
+const CONTENT_DOCUMENT_MAX_SIZE = 50 * 1024 * 1024;
 
 type LeagueEventEntry = {
   key: string;
@@ -1028,6 +1069,23 @@ function formatDateLabel(dateISO: string) {
   return date.toLocaleDateString('cs-CZ', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
+function formatDocumentDate(dateISO: string) {
+  const [year, month, day] = dateISO.split('-').map(Number);
+  if (!year || !month || !day) {
+    return dateISO;
+  }
+  return new Intl.DateTimeFormat('cs-CZ', { day: 'numeric', month: 'numeric', year: 'numeric' }).format(
+    new Date(year, month - 1, day),
+  );
+}
+
+function formatFileSize(bytes: number) {
+  if (bytes < 1024 * 1024) {
+    return `${Math.max(1, Math.round(bytes / 1024))} kB`;
+  }
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 function stripHtmlToText(html: string) {
   if (!html) {
     return '';
@@ -1820,6 +1878,56 @@ const EMPTY_EDITOR_FORM: EditorFormState = {
   status: 'draft',
 };
 
+type EditorDocument = {
+  id: string;
+  kind: SptoDocumentKind;
+  title: string;
+  description?: string | null;
+  event_date?: string | null;
+  year?: number | null;
+  file_url?: string | null;
+  file_path?: string | null;
+  file_name?: string | null;
+  file_size?: number | null;
+  external_url?: string | null;
+  cover_url?: string | null;
+  visibility: 'public' | 'internal';
+  published: boolean;
+  created_at?: string | null;
+};
+
+type EditorDocumentFormState = {
+  kind: SptoDocumentKind;
+  title: string;
+  description: string;
+  event_date: string;
+  year: string;
+  file_url: string;
+  file_path: string;
+  file_name: string;
+  file_size: number | null;
+  external_url: string;
+  cover_url: string;
+  visibility: 'public' | 'internal';
+  published: boolean;
+};
+
+const EMPTY_DOCUMENT_FORM: EditorDocumentFormState = {
+  kind: 'propozice',
+  title: '',
+  description: '',
+  event_date: '',
+  year: '',
+  file_url: '',
+  file_path: '',
+  file_name: '',
+  file_size: null,
+  external_url: '',
+  cover_url: '',
+  visibility: 'public',
+  published: true,
+};
+
 function RedakcePage() {
   const [session, setSession] = useState<'checking' | 'unauth' | 'auth'>('checking');
   const [password, setPassword] = useState('');
@@ -1843,6 +1951,14 @@ function RedakcePage() {
   const [albumTitleSaving, setAlbumTitleSaving] = useState(false);
   const [articleUploadMessage, setArticleUploadMessage] = useState<string | null>(null);
   const [articleUploadSaving, setArticleUploadSaving] = useState(false);
+  const [documents, setDocuments] = useState<EditorDocument[]>([]);
+  const [activeDocumentId, setActiveDocumentId] = useState<string | null>(null);
+  const [documentForm, setDocumentForm] = useState<EditorDocumentFormState>(EMPTY_DOCUMENT_FORM);
+  const [documentFilter, setDocumentFilter] = useState<SptoDocumentKind | 'all'>('all');
+  const [documentMessage, setDocumentMessage] = useState<string | null>(null);
+  const [documentSaving, setDocumentSaving] = useState(false);
+  const [documentUploading, setDocumentUploading] = useState(false);
+  const [documentDragActive, setDocumentDragActive] = useState(false);
   const bodyEditorRef = useRef<HTMLDivElement | null>(null);
 
   const loadArticles = () =>
@@ -1910,6 +2026,16 @@ function RedakcePage() {
         setAlbumTitleLoading(false);
       });
   };
+
+  const loadDocuments = () =>
+    fetch('/api/content/admin/documents', { credentials: 'include' })
+      .then((response) => (response.ok ? response.json() : Promise.reject()))
+      .then((data) => {
+        setDocuments((data.documents ?? []) as EditorDocument[]);
+      })
+      .catch(() => {
+        setDocuments([]);
+      });
 
   const syncBodyFromEditor = useCallback(() => {
     const html = bodyEditorRef.current?.innerHTML ?? '';
@@ -2089,6 +2215,7 @@ function RedakcePage() {
           loadArticles();
           loadLeagueScores();
           loadAlbumTitles();
+          loadDocuments();
         }
       })
       .catch(() => {
@@ -2122,6 +2249,7 @@ function RedakcePage() {
         setPassword('');
         loadLeagueScores();
         loadAlbumTitles();
+        loadDocuments();
         return loadArticles();
       })
       .catch((error) => {
@@ -2542,6 +2670,210 @@ function RedakcePage() {
         setAlbumTitleSaving(false);
       });
   };
+
+  const updateDocumentField = <Key extends keyof EditorDocumentFormState>(
+    key: Key,
+    value: EditorDocumentFormState[Key],
+  ) => {
+    setDocumentForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleNewDocument = () => {
+    setActiveDocumentId(null);
+    setDocumentForm(EMPTY_DOCUMENT_FORM);
+    setDocumentMessage(null);
+  };
+
+  const selectDocument = (doc: EditorDocument) => {
+    setActiveDocumentId(doc.id);
+    setDocumentMessage(null);
+    setDocumentForm({
+      kind: doc.kind,
+      title: doc.title,
+      description: doc.description ?? '',
+      event_date: doc.event_date ?? '',
+      year: doc.year ? String(doc.year) : '',
+      file_url: doc.file_url ?? '',
+      file_path: doc.file_path ?? '',
+      file_name: doc.file_name ?? '',
+      file_size: doc.file_size ?? null,
+      external_url: doc.external_url ?? '',
+      cover_url: doc.cover_url ?? '',
+      visibility: doc.visibility,
+      published: doc.published,
+    });
+  };
+
+  const uploadDocumentFiles = async (files: File[]) => {
+    if (files.length === 0) {
+      return;
+    }
+    // Obálka sborníčku je obrázek, samotný dokument PDF — podle typu je rozdělíme do správných polí.
+    const tooLarge = files.find((file) => file.size > CONTENT_DOCUMENT_MAX_SIZE);
+    if (tooLarge) {
+      setDocumentMessage(`Soubor ${tooLarge.name} je větší než 50 MB.`);
+      return;
+    }
+
+    setDocumentUploading(true);
+    setDocumentMessage(null);
+    try {
+      const response = await fetch('/api/content/admin/document-upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          files: files.map((file) => ({ name: file.name, type: file.type, size: file.size })),
+        }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        uploads?: EditorSignedImageUpload[];
+      };
+      if (!response.ok) {
+        throw new Error(payload.error || 'Nepodařilo se připravit upload.');
+      }
+      const uploads = Array.isArray(payload.uploads) ? payload.uploads : [];
+      if (uploads.length !== files.length) {
+        throw new Error('Server vrátil nekompletní seznam uploadů.');
+      }
+
+      for (let index = 0; index < files.length; index += 1) {
+        const file = files[index];
+        const uploadMeta = uploads[index];
+        const { error: uploadError } = await supabase.storage
+          .from(CONTENT_DOCUMENTS_BUCKET)
+          .uploadToSignedUrl(uploadMeta.path, uploadMeta.token, file, {
+            contentType: file.type || uploadMeta.contentType || undefined,
+            upsert: false,
+          });
+        if (uploadError) {
+          throw uploadError;
+        }
+
+        if (file.type.startsWith('image/')) {
+          updateDocumentField('cover_url', uploadMeta.publicUrl);
+        } else {
+          setDocumentForm((prev) => ({
+            ...prev,
+            file_url: uploadMeta.publicUrl,
+            file_path: uploadMeta.path,
+            file_name: file.name,
+            file_size: file.size,
+            title: prev.title || file.name.replace(/\.[^.]+$/, '').trim(),
+          }));
+        }
+      }
+
+      setDocumentMessage(`Nahráno ${files.length} ${files.length === 1 ? 'soubor' : 'souborů'}. Nezapomeň uložit.`);
+    } catch (error) {
+      setDocumentMessage(error instanceof Error ? error.message : 'Nahrání se nezdařilo.');
+    } finally {
+      setDocumentUploading(false);
+    }
+  };
+
+  const handleDocumentFileInput = async (event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    await uploadDocumentFiles(files);
+    event.target.value = '';
+  };
+
+  const handleDocumentDrop = async (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setDocumentDragActive(false);
+    await uploadDocumentFiles(Array.from(event.dataTransfer.files ?? []));
+  };
+
+  const handleDocumentSave = () => {
+    const title = documentForm.title.trim();
+    if (!title) {
+      setDocumentMessage('Vyplň název dokumentu.');
+      return;
+    }
+    if (!documentForm.file_url.trim() && !documentForm.external_url.trim()) {
+      setDocumentMessage('Nahraj soubor nebo vyplň odkaz.');
+      return;
+    }
+
+    const parsedYear = Number.parseInt(documentForm.year, 10);
+    const body = {
+      kind: documentForm.kind,
+      title,
+      description: documentForm.description,
+      event_date: documentForm.event_date,
+      year: Number.isFinite(parsedYear) ? parsedYear : null,
+      file_url: documentForm.file_url,
+      file_path: documentForm.file_path,
+      file_name: documentForm.file_name,
+      file_size: documentForm.file_size,
+      external_url: documentForm.external_url,
+      cover_url: documentForm.cover_url,
+      visibility: documentForm.visibility,
+      published: documentForm.published,
+    };
+
+    setDocumentSaving(true);
+    setDocumentMessage(null);
+    fetch(
+      activeDocumentId ? `/api/content/admin/documents/${activeDocumentId}` : '/api/content/admin/documents',
+      {
+        method: activeDocumentId ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+      },
+    )
+      .then(async (response) => {
+        const payload = (await response.json().catch(() => ({}))) as { error?: string; document?: EditorDocument };
+        if (!response.ok) {
+          throw new Error(payload.error || 'Uložení se nezdařilo.');
+        }
+        setDocumentMessage('Dokument byl uložen.');
+        if (payload.document) {
+          setActiveDocumentId(payload.document.id);
+        }
+        return loadDocuments();
+      })
+      .catch((error) => {
+        setDocumentMessage(error instanceof Error ? error.message : 'Uložení se nezdařilo.');
+      })
+      .finally(() => {
+        setDocumentSaving(false);
+      });
+  };
+
+  const handleDocumentDelete = () => {
+    if (!activeDocumentId) {
+      return;
+    }
+    if (!window.confirm('Opravdu smazat tento dokument? Smaže se i nahraný soubor.')) {
+      return;
+    }
+    setDocumentSaving(true);
+    fetch(`/api/content/admin/documents/${activeDocumentId}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error('Smazání se nezdařilo.');
+        }
+        setActiveDocumentId(null);
+        setDocumentForm(EMPTY_DOCUMENT_FORM);
+        setDocumentMessage('Dokument byl smazán.');
+        return loadDocuments();
+      })
+      .catch((error) => {
+        setDocumentMessage(error instanceof Error ? error.message : 'Smazání se nezdařilo.');
+      })
+      .finally(() => {
+        setDocumentSaving(false);
+      });
+  };
+
+  const visibleDocuments =
+    documentFilter === 'all' ? documents : documents.filter((doc) => doc.kind === documentFilter);
 
   const selectedLeagueSeason =
     leagueData.seasons.find((season) => season.id === selectedLeagueSeasonId) ??
@@ -3021,6 +3353,227 @@ function RedakcePage() {
                   ))}
                 </div>
               ) : null}
+            </div>
+
+            <div className="homepage-card editor-documents">
+              <div className="editor-documents-header">
+                <div>
+                  <h2>Dokumenty</h2>
+                  <p>
+                    Propozice a zápisy se zobrazí v Plánu akcí u data, které vyplníš. Sborníčky se řadí podle roku na
+                    stránku O SPTO.
+                  </p>
+                </div>
+                <div className="editor-documents-actions">
+                  <button type="button" className="homepage-button homepage-button--ghost" onClick={handleNewDocument}>
+                    Nový
+                  </button>
+                  <button type="button" className="homepage-button homepage-button--ghost" onClick={loadDocuments}>
+                    Obnovit
+                  </button>
+                </div>
+              </div>
+
+              <div className="editor-documents-grid">
+                <div className="editor-documents-list-panel">
+                  <div className="gallery-year-tabs editor-documents-filter" aria-label="Filtr typů dokumentů">
+                    <button
+                      type="button"
+                      className={`gallery-year-tab${documentFilter === 'all' ? ' is-active' : ''}`}
+                      onClick={() => setDocumentFilter('all')}
+                    >
+                      Vše
+                    </button>
+                    {DOCUMENT_KIND_ORDER.map((kind) => (
+                      <button
+                        key={kind}
+                        type="button"
+                        className={`gallery-year-tab${documentFilter === kind ? ' is-active' : ''}`}
+                        onClick={() => setDocumentFilter(kind)}
+                      >
+                        {DOCUMENT_KIND_LABELS[kind]}
+                      </button>
+                    ))}
+                  </div>
+                  <ul className="editor-list">
+                    {visibleDocuments.length === 0 ? (
+                      <li className="editor-empty">Zatím tu nic není. Klikni na „Nový“ a nahraj první dokument.</li>
+                    ) : (
+                      visibleDocuments.map((doc) => (
+                        <li key={doc.id}>
+                          <button
+                            type="button"
+                            className={`editor-list-item${doc.id === activeDocumentId ? ' is-active' : ''}`}
+                            onClick={() => selectDocument(doc)}
+                          >
+                            <span>{doc.title}</span>
+                            <small>
+                              {DOCUMENT_KIND_LABELS[doc.kind]}
+                              {doc.event_date ? ` · ${formatDocumentDate(doc.event_date)}` : ''}
+                              {doc.year ? ` · ${doc.year}` : ''}
+                              {doc.published ? '' : ' · skryto'}
+                              {doc.visibility === 'internal' ? ' · interní' : ''}
+                            </small>
+                          </button>
+                        </li>
+                      ))
+                    )}
+                  </ul>
+                </div>
+
+                <div className="editor-form editor-documents-form">
+                  <h3>{activeDocumentId ? 'Upravit dokument' : 'Nový dokument'}</h3>
+                  <div className="editor-form-grid">
+                    <label>
+                      Typ
+                      <select
+                        value={documentForm.kind}
+                        onChange={(event) => updateDocumentField('kind', event.target.value as SptoDocumentKind)}
+                      >
+                        {DOCUMENT_KIND_ORDER.map((kind) => (
+                          <option key={kind} value={kind}>
+                            {DOCUMENT_KIND_LABELS[kind]}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      Název
+                      <input
+                        value={documentForm.title}
+                        onChange={(event) => updateDocumentField('title', event.target.value)}
+                        placeholder="Např. Propozice Setonova závodu 2027"
+                      />
+                    </label>
+                    {documentForm.kind === 'sbornicek' ? (
+                      <label>
+                        Rok vydání
+                        <input
+                          type="number"
+                          value={documentForm.year}
+                          onChange={(event) => updateDocumentField('year', event.target.value)}
+                          placeholder="2019"
+                        />
+                      </label>
+                    ) : (
+                      <label>
+                        Datum akce
+                        <input
+                          type="date"
+                          value={documentForm.event_date}
+                          onChange={(event) => updateDocumentField('event_date', event.target.value)}
+                        />
+                      </label>
+                    )}
+                  </div>
+
+                  <div
+                    className={`editor-dropzone${documentDragActive ? ' is-active' : ''}`}
+                    onDragOver={(event) => {
+                      event.preventDefault();
+                      setDocumentDragActive(true);
+                    }}
+                    onDragLeave={() => setDocumentDragActive(false)}
+                    onDrop={handleDocumentDrop}
+                  >
+                    <p className="editor-dropzone-title">
+                      {documentUploading ? 'Nahrávám…' : 'Přetáhni sem PDF (u sborníčku i obálku)'}
+                    </p>
+                    <label className="editor-dropzone-button">
+                      Vybrat soubor
+                      <input
+                        type="file"
+                        multiple
+                        accept={CONTENT_DOCUMENT_ACCEPT}
+                        onChange={handleDocumentFileInput}
+                        disabled={documentUploading}
+                      />
+                    </label>
+                    {documentForm.file_url ? (
+                      <p className="editor-dropzone-file">
+                        Nahráno: {documentForm.file_name || 'soubor'}
+                        {documentForm.file_size ? ` (${formatFileSize(documentForm.file_size)})` : ''}
+                        <button
+                          type="button"
+                          className="editor-dropzone-clear"
+                          onClick={() => {
+                            updateDocumentField('file_url', '');
+                            updateDocumentField('file_path', '');
+                            updateDocumentField('file_name', '');
+                            updateDocumentField('file_size', null);
+                          }}
+                        >
+                          odebrat
+                        </button>
+                      </p>
+                    ) : null}
+                    {documentForm.cover_url ? <p className="editor-dropzone-file">Obálka nahraná.</p> : null}
+                  </div>
+
+                  <label>
+                    Odkaz (přihláška, Disk, Google Doc)
+                    <input
+                      value={documentForm.external_url}
+                      onChange={(event) => updateDocumentField('external_url', event.target.value)}
+                      placeholder="https://…"
+                    />
+                  </label>
+
+                  <label>
+                    Doplňující informace
+                    <textarea
+                      rows={6}
+                      value={documentForm.description}
+                      onChange={(event) => updateDocumentField('description', event.target.value)}
+                      placeholder="Sem můžeš vlepit mail od pořadatele – sraz, startovné, uzávěrka přihlášek…"
+                    />
+                  </label>
+
+                  <div className="editor-documents-flags">
+                    <label className="editor-check">
+                      <input
+                        type="checkbox"
+                        checked={documentForm.published}
+                        onChange={(event) => updateDocumentField('published', event.target.checked)}
+                      />
+                      <span>Zobrazovat na webu</span>
+                    </label>
+                    <label className="editor-check">
+                      <input
+                        type="checkbox"
+                        checked={documentForm.visibility === 'internal'}
+                        onChange={(event) =>
+                          updateDocumentField('visibility', event.target.checked ? 'internal' : 'public')
+                        }
+                      />
+                      <span>Jen interní (odkaz se nezveřejní)</span>
+                    </label>
+                  </div>
+
+                  {documentMessage ? <p className="homepage-alert">{documentMessage}</p> : null}
+
+                  <div className="editor-buttons">
+                    {activeDocumentId ? (
+                      <button
+                        type="button"
+                        className="homepage-button homepage-button--ghost"
+                        onClick={handleDocumentDelete}
+                        disabled={documentSaving}
+                      >
+                        Smazat
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      className="homepage-button"
+                      onClick={handleDocumentSave}
+                      disabled={documentSaving || documentUploading}
+                    >
+                      {documentSaving ? 'Ukládám…' : 'Uložit'}
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </>
         )}
