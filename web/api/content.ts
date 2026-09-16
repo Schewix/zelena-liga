@@ -168,6 +168,7 @@ type DocumentRow = {
   visibility: string;
   published: boolean;
   order_index: number;
+  schedule_event_id?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
 };
@@ -1600,6 +1601,13 @@ function parseDocumentPayload(payload: Record<string, unknown>, partial: boolean
     update.order_index = Math.trunc(payload.order_index);
   }
 
+  // Prázdná hodnota ze selectu v redakci znamená „dokument k žádné akci nepatří“.
+  if (payload.schedule_event_id === null || payload.schedule_event_id === '') {
+    update.schedule_event_id = null;
+  } else if (typeof payload.schedule_event_id === 'string') {
+    update.schedule_event_id = payload.schedule_event_id;
+  }
+
   readText('description');
   readText('event_date');
   readText('file_url');
@@ -1627,6 +1635,7 @@ function toPublicDocument(row: DocumentRow) {
     externalUrl: restricted ? null : row.external_url,
     coverUrl: row.cover_url,
     orderIndex: row.order_index,
+    scheduleEventId: row.schedule_event_id ?? null,
     restricted,
   };
 }

@@ -14,6 +14,13 @@ import { PortableText } from '@portabletext/react';
 import AppFooter from '../components/AppFooter';
 import logo from '../assets/znak_SPTO_transparent.png';
 import { fetchContentArticle, fetchContentArticles, type ContentArticle } from '../data/content';
+import {
+  documentLink,
+  fetchDocuments,
+  sortDocumentsByYearDesc,
+  type SptoDocument,
+  type SptoDocumentKind,
+} from '../data/documents';
 import { fetchHomepage, hasSanityConfig, type SanityHomepage } from '../data/sanity';
 import {
   fetchScheduleEvents,
@@ -157,24 +164,6 @@ const SCHEDULE_KIND_LABELS: Record<ScheduleEventKind, string> = {
   event: 'Akce',
   assembly: 'Sněm',
   staff: 'Štáb',
-};
-
-type SptoDocumentKind = 'sbornicek' | 'propozice' | 'zapis-snem' | 'zapis-stab' | 'prihlaska' | 'ostatni';
-
-type SptoDocument = {
-  id: string;
-  kind: SptoDocumentKind;
-  title: string;
-  description: string | null;
-  eventDate: string | null;
-  year: number | null;
-  fileUrl: string | null;
-  fileName: string | null;
-  fileSize: number | null;
-  externalUrl: string | null;
-  coverUrl: string | null;
-  orderIndex: number;
-  restricted: boolean;
 };
 
 const DOCUMENT_KIND_LABELS: Record<SptoDocumentKind, string> = {
@@ -1543,6 +1532,92 @@ function PdfEmbedCard({ title, url }: { title: string; url: string }) {
   );
 }
 
+// Dlaždice sborníčku: obálka, když je nahraná, jinak aspoň ročník na barevném podkladu.
+function SbornicekGrid({ documents }: { documents: SptoDocument[] }) {
+  return (
+    <ul className="sbornicek-grid">
+      {documents.map((document) => {
+        const link = documentLink(document);
+        const cover = document.coverUrl ? (
+          <img src={document.coverUrl} alt="" loading="lazy" />
+        ) : (
+          <span className="sbornicek-cover-fallback" aria-hidden="true">
+            {document.year ?? 'SPTO'}
+          </span>
+        );
+        const body = (
+          <>
+            <span className="sbornicek-cover">{cover}</span>
+            <span className="sbornicek-meta">
+              <strong>{document.title}</strong>
+              {document.description ? <small>{document.description}</small> : null}
+            </span>
+          </>
+        );
+        return (
+          <li className="sbornicek-item" key={document.id}>
+            {link ? (
+              <a className="sbornicek-link" href={link} target="_blank" rel="noreferrer">
+                {body}
+              </a>
+            ) : (
+              <span className="sbornicek-link sbornicek-link--locked">
+                {body}
+                <span className="sbornicek-locked-note">Jen pro vedoucí</span>
+              </span>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+// Dokumenty navázané na termín – u akce v Plánu akcí stačí drobné odkazy.
+function ScheduleDocumentLinks({ documents }: { documents: SptoDocument[] }) {
+  if (documents.length === 0) {
+    return null;
+  }
+  return (
+    <span className="schedule-doc-links">
+      {documents.map((document) => {
+        const link = documentLink(document);
+        const label = `${DOCUMENT_KIND_LABELS[document.kind]}${document.kind === 'ostatni' ? `: ${document.title}` : ''}`;
+        return link ? (
+          <a className="schedule-doc-link" href={link} target="_blank" rel="noreferrer" key={document.id}>
+            {label}
+          </a>
+        ) : (
+          <span className="schedule-doc-link schedule-doc-link--locked" key={document.id}>
+            {label} · jen pro vedoucí
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
+// Dokumenty se k termínu váží přes id, které má jen záznam z databáze.
+function groupDocumentsByEvent(documents: SptoDocument[]) {
+  const grouped = new Map<string, SptoDocument[]>();
+  documents.forEach((document) => {
+    if (!document.scheduleEventId) {
+      return;
+    }
+    const current = grouped.get(document.scheduleEventId);
+    if (current) {
+      current.push(document);
+    } else {
+      grouped.set(document.scheduleEventId, [document]);
+    }
+  });
+  return grouped;
+}
+
+function eventDocuments(grouped: Map<string, SptoDocument[]>, event: ScheduleEvent) {
+  return event.id ? grouped.get(event.id) ?? [] : [];
+}
+
 function TroopsPage() {
   return (
     <SiteShell>
@@ -1872,6 +1947,7 @@ type EditorDocument = {
   cover_url?: string | null;
   visibility: 'public' | 'internal';
   published: boolean;
+  schedule_event_id?: string | null;
   created_at?: string | null;
 };
 
@@ -1889,6 +1965,7 @@ type EditorDocumentFormState = {
   cover_url: string;
   visibility: 'public' | 'internal';
   published: boolean;
+  schedule_event_id: string;
 };
 
 const EMPTY_DOCUMENT_FORM: EditorDocumentFormState = {
@@ -1905,6 +1982,7 @@ const EMPTY_DOCUMENT_FORM: EditorDocumentFormState = {
   cover_url: '',
   visibility: 'public',
   published: true,
+  schedule_event_id: '',
 };
 
 type EditorScheduleEvent = {
@@ -2728,6 +2806,7 @@ function RedakcePage() {
       cover_url: doc.cover_url ?? '',
       visibility: doc.visibility,
       published: doc.published,
+      schedule_event_id: doc.schedule_event_id ?? '',
     });
   };
 
@@ -2838,6 +2917,7 @@ function RedakcePage() {
       cover_url: documentForm.cover_url,
       visibility: documentForm.visibility,
       published: documentForm.published,
+      schedule_event_id: documentForm.schedule_event_id,
     };
 
     setDocumentSaving(true);
@@ -3498,8 +3578,8 @@ function RedakcePage() {
                 <div>
                   <h2>Dokumenty</h2>
                   <p>
-                    Propozice a zápisy se zobrazí v Plánu akcí u data, které vyplníš. Sborníčky se řadí podle roku na
-                    stránku O SPTO.
+                    Propozice a zápisy se zobrazí v Plánu akcí u akce, kterou dokumentu přiřadíš. Sborníčky se řadí
+                    podle roku na stránku O SPTO.
                   </p>
                 </div>
                 <div className="editor-documents-actions">
@@ -3547,6 +3627,9 @@ function RedakcePage() {
                             <span>{doc.title}</span>
                             <small>
                               {DOCUMENT_KIND_LABELS[doc.kind]}
+                              {doc.schedule_event_id
+                                ? ` · ${scheduleEvents.find((event) => event.id === doc.schedule_event_id)?.name ?? 'akce'}`
+                                : ''}
                               {doc.event_date ? ` · ${formatDocumentDate(doc.event_date)}` : ''}
                               {doc.year ? ` · ${doc.year}` : ''}
                               {doc.published ? '' : ' · skryto'}
@@ -3604,6 +3687,26 @@ function RedakcePage() {
                       </label>
                     )}
                   </div>
+
+                  {documentForm.kind === 'sbornicek' ? null : (
+                    <label>
+                      Akce v plánu (nepovinné)
+                      <select
+                        value={documentForm.schedule_event_id}
+                        onChange={(event) => updateDocumentField('schedule_event_id', event.target.value)}
+                      >
+                        <option value="">Bez navázání na akci</option>
+                        {scheduleEvents.map((event) => (
+                          <option key={event.id} value={event.id}>
+                            {event.name} · {formatDocumentDate(event.start_date)}
+                          </option>
+                        ))}
+                      </select>
+                      <small className="editor-field-hint">
+                        Navázaný dokument se ukáže přímo u termínu v Plánu akcí.
+                      </small>
+                    </label>
+                  )}
 
                   <div
                     className={`editor-dropzone${documentDragActive ? ' is-active' : ''}`}
@@ -6553,10 +6656,12 @@ function formatScheduleDateParts(event: ScheduleEvent) {
 
 function ScheduleEventList({
   events,
+  documentsByEvent,
   highlightFirst = false,
   muted = false,
 }: {
   events: ScheduleEvent[];
+  documentsByEvent: Map<string, SptoDocument[]>;
   highlightFirst?: boolean;
   muted?: boolean;
 }) {
@@ -6582,6 +6687,7 @@ function ScheduleEventList({
                 <strong>{event.name}</strong>
               )}
               {meta ? <small>{meta}</small> : null}
+              <ScheduleDocumentLinks documents={eventDocuments(documentsByEvent, event)} />
             </div>
             {highlightFirst && index === 0 ? <span className="schedule-list-next">Nejbližší</span> : null}
           </li>
@@ -6712,6 +6818,7 @@ function SchedulePage() {
   const [events, setEvents] = useState<ScheduleEvent[]>(() => sortScheduleEvents(FALLBACK_SCHEDULE_EVENTS));
   const [selectedMonthIndex, setSelectedMonthIndex] = useState(() => resolveCurrentMonthIndex(months, today));
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<string | null>(null);
+  const [documents, setDocuments] = useState<SptoDocument[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -6720,10 +6827,17 @@ function SchedulePage() {
         setEvents(remote);
       }
     });
+    fetchDocuments().then((remote) => {
+      if (active) {
+        setDocuments(remote);
+      }
+    });
     return () => {
       active = false;
     };
   }, []);
+
+  const documentsByEvent = useMemo(() => groupDocumentsByEvent(documents), [documents]);
 
   // Akce trvající víc dní patří mezi nadcházející až do svého posledního dne.
   const upcomingEvents = events.filter((event) => scheduleEventEnd(event).getTime() >= today.getTime());
@@ -6763,7 +6877,7 @@ function SchedulePage() {
             <span className="homepage-section-accent" aria-hidden="true" />
           </div>
           {upcomingEvents.length > 0 ? (
-            <ScheduleEventList events={upcomingEvents} highlightFirst />
+            <ScheduleEventList events={upcomingEvents} documentsByEvent={documentsByEvent} highlightFirst />
           ) : (
             <p className="schedule-empty">Do konce školního roku už nemáme naplánovaný žádný další termín.</p>
           )}
@@ -6775,7 +6889,7 @@ function SchedulePage() {
               <span>Co už proběhlo</span>
               <span className="schedule-past-count">{pastEvents.length}</span>
             </summary>
-            <ScheduleEventList events={pastEvents} muted />
+            <ScheduleEventList events={pastEvents} documentsByEvent={documentsByEvent} muted />
           </details>
         ) : null}
 
@@ -6837,6 +6951,7 @@ function SchedulePage() {
                     <strong>{event.name}</strong>
                     <time dateTime={event.start}>{formatScheduleDate(event)}</time>
                     {event.note ? <small>{event.note}</small> : null}
+                    <ScheduleDocumentLinks documents={eventDocuments(documentsByEvent, event)} />
                     {event.href ? <a className="schedule-event-link" href={event.href}>Detail soutěže →</a> : null}
                   </article>
                 ))}
@@ -7065,6 +7180,20 @@ function CompetitionRulesPage({ slug }: CompetitionRulesPageProps) {
 }
 
 function AboutSptoPage() {
+  const [sbornicky, setSbornicky] = useState<SptoDocument[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    fetchDocuments().then((documents) => {
+      if (active) {
+        setSbornicky(sortDocumentsByYearDesc(documents.filter((document) => document.kind === 'sbornicek')));
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
     <SiteShell>
       <main className="homepage-main homepage-single" aria-labelledby="about-spto-heading">
@@ -7128,6 +7257,14 @@ function AboutSptoPage() {
             <p>Soubor zásad se nepodařilo načíst. Zkus prosím obnovit stránku.</p>
           )}
         </div>
+
+        {sbornicky.length > 0 ? (
+          <div className="homepage-card sbornicky-card">
+            <h2>Sborníčky SPTO</h2>
+            <p className="sbornicky-lead">Ročenky z činnosti oddílů. Klikni na dlaždici a sborníček se otevře.</p>
+            <SbornicekGrid documents={sbornicky} />
+          </div>
+        ) : null}
       </main>
     </SiteShell>
   );

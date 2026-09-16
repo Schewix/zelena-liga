@@ -1,6 +1,8 @@
 export type ScheduleEventKind = 'event' | 'assembly' | 'staff';
 
 export type ScheduleEvent = {
+  // Vestavěný záložní seznam id nemá, přichází až z databáze — podle něj se k akci párují dokumenty.
+  id?: string | null;
   name: string;
   start: string;
   end?: string | null;
@@ -22,6 +24,7 @@ function normalizeEvent(raw: unknown): ScheduleEvent | null {
   if (typeof value.name !== 'string' || value.name.length === 0) return null;
   if (typeof value.start !== 'string' || value.start.length === 0) return null;
   return {
+    id: typeof value.id === 'string' ? value.id : null,
     name: value.name,
     start: value.start,
     end: typeof value.end === 'string' ? value.end : null,

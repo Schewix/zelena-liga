@@ -702,6 +702,35 @@
 .schedule-list-copy strong { font-size: 1.02rem; }
 .schedule-list-copy small { color: var(--text-muted); }
 
+.schedule-doc-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.schedule-doc-link {
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(4, 55, 44, 0.16);
+  background: #ffffff;
+  color: #04372c;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+a.schedule-doc-link:hover,
+a.schedule-doc-link:focus-visible {
+  border-color: rgba(4, 55, 44, 0.4);
+  background: #e7f3ec;
+}
+
+.schedule-doc-link--locked {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
 .schedule-list-next {
   padding: 4px 10px;
   border-radius: 999px;
@@ -1935,6 +1964,101 @@
   color: rgba(4, 55, 44, 0.68);
 }
 
+.sbornicky-lead {
+  margin: 0 0 18px;
+  color: var(--text-muted);
+}
+
+/* Pevná šířka dlaždice drží kartu v řadě s ostatními na stránce O SPTO, ať police nevyskočí do celé šířky. */
+.sbornicek-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(3, 150px);
+  justify-content: center;
+}
+
+.sbornicek-link {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
+  text-decoration: none;
+  color: inherit;
+}
+
+.sbornicek-cover {
+  display: block;
+  aspect-ratio: 3 / 4;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(4, 55, 44, 0.12);
+  background: var(--zl-green-50);
+  box-shadow: 0 10px 24px rgba(44, 67, 52, 0.1);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.sbornicek-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Bez nahrané obálky ukážeme aspoň ročník, ať dlaždice nezůstane prázdná. */
+.sbornicek-cover-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #04372c;
+}
+
+.sbornicek-link:hover .sbornicek-cover,
+.sbornicek-link:focus-visible .sbornicek-cover {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 30px rgba(44, 67, 52, 0.18);
+}
+
+.sbornicek-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sbornicek-meta strong {
+  font-size: 0.95rem;
+}
+
+.sbornicek-meta small {
+  color: var(--text-muted);
+}
+
+.sbornicek-link--locked {
+  cursor: default;
+}
+
+.sbornicek-link--locked .sbornicek-cover {
+  opacity: 0.6;
+}
+
+.sbornicek-locked-note {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+@media (max-width: 560px) {
+  .sbornicek-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+}
+
 .homepage-pdf-stack {
   display: flex;
   flex-direction: column;
@@ -2642,6 +2766,13 @@
 
 .editor-form textarea {
   resize: vertical;
+}
+
+.editor-field-hint {
+  display: block;
+  margin-top: 6px;
+  color: rgba(4, 55, 44, 0.62);
+  font-size: 0.82rem;
 }
 
 .editor-rich-toolbar {
