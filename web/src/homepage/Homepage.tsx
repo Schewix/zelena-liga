@@ -574,7 +574,6 @@ type Troop = {
   leaderHistoryGroups?: TroopLeaderHistoryGroup[];
   leaderHistoryNote?: string;
   href: string;
-  description?: string[];
   website?: string;
   logoKey?: string;
 };
@@ -787,12 +786,6 @@ const TROOPS: Troop[] = [
       { name: 'Zuzana Del Favero (Cucka)', term: '1994–2013' },
       { name: 'Hana Nováková', term: '1992–1994' },
       { name: 'Přemysl Jeřábek', term: '1990–1992' },
-    ],
-    description: [
-      'Náš oddíl se jmenuje Severka a pocházíme z brněnských Bohunic. Posláním našeho oddílu je poskytovat dětem zázemí, ve kterém jsou vychovávány ve vztahu k přírodě, kamarádům i sobě samým. Učíme je být samostatnými, posouváme hranice jejich možností. Děláme to z přesvědčení, že jim to pomůže při další cestě životem. Často vyrážíme do přírody za dobrodružstvím a to vše v partě přátel a kamarádů.',
-      'Náš oddíl má mnoholetou tradici – založení oddílu 1. 5. 1985. Je zaměřený na turistiku, pobyt v přírodě i ve městě, tábornictví, sportovní hry a vodáctví, ale provozujeme také jiné činnosti jako je zpívání, rukodělná a řemeslná výroba, výlety na kolech a koních, návštěvy jeskyní, horolezectví, lyžování, plavání atd.',
-      'Potkáváme se na každotýdenních schůzkách, jednodenních výletech i víkendových výpravách a samozřejmě letním stanovém táboru. Každoročně pořádáme také akce pro děti s rodiči, příměstské tábory, letní expedice, sjíždění řek či výlety do zahraničí. Pravidelně se také účastníme různých soutěží a můžeme se pochlubit například několika prvními místy na republikovém finále závodů tábornických dovedností.',
-      'V současné době se náš oddíl skládá přibližně z šedesáti dětí, rádců a vedoucích. Věkové složení dětí je od šesti do šestnácti let.',
     ],
   },
   {
@@ -1644,37 +1637,27 @@ function TroopDetailPage({ troop }: { troop: Troop }) {
   return (
     <SiteShell>
       <main className="homepage-main homepage-single troop-detail" aria-labelledby="troop-heading">
-        <h1 id="troop-heading">{formatTroopName(troop)}</h1>
-        {troop.year ? <p className="homepage-lead">založeno {troop.year}</p> : null}
-        <div className="homepage-card troop-detail-card">
+        {/* Znak oddílu patří k názvu, samostatná karta jen s logem působila prázdně. */}
+        <header className="troop-detail-hero">
           {logo ? (
-            troop.website ? (
-              <a className="troop-detail-logo-link" href={troop.website} target="_blank" rel="noreferrer">
-                <img className="troop-detail-logo" src={logo} alt={`Logo ${formatTroopName(troop)}`} />
+            <img className="troop-detail-logo" src={logo} alt={`Logo ${formatTroopName(troop)}`} />
+          ) : null}
+          <div className="troop-detail-hero-text">
+            <h1 id="troop-heading">{formatTroopName(troop)}</h1>
+            {troop.year ? <p className="homepage-lead">založeno {troop.year}</p> : null}
+            {troop.website ? (
+              <a className="troop-website-link" href={troop.website} target="_blank" rel="noreferrer">
+                Web oddílu
               </a>
-            ) : (
-              <img className="troop-detail-logo" src={logo} alt={`Logo ${formatTroopName(troop)}`} />
-            )
-          ) : null}
-          {troop.description && troop.description.length > 0 ? (
-            <div className="troop-detail-copy">
-              {troop.description.map((paragraph, index) => (
-                <p key={`${troop.href}-desc-${index}`}>{paragraph}</p>
-              ))}
-            </div>
-          ) : null}
-        </div>
+            ) : null}
+          </div>
+        </header>
         <section className="homepage-card troop-leader-card" aria-labelledby="troop-leader-heading">
           <h2 id="troop-leader-heading">Náčelník oddílu</h2>
           <p className="troop-leader-name">{troop.leader}</p>
           <TroopLeaderContactLinks troop={troop} className="troop-leader-meta" />
           {!troop.leaderPhone && !troop.leaderEmail ? (
             <p className="troop-leader-empty">Kontakt zatím nemáme, zkus web oddílu.</p>
-          ) : null}
-          {troop.website ? (
-            <a className="troop-website-link" href={troop.website} target="_blank" rel="noreferrer">
-              Web oddílu
-            </a>
           ) : null}
         </section>
         {hasHistory ? (

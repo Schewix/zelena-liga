@@ -1952,49 +1952,42 @@
   text-decoration: underline;
 }
 
-.troop-detail-card {
-  display: block;
+.troop-detail-hero {
+  display: flex;
+  align-items: center;
+  gap: clamp(16px, 3vw, 28px);
 }
 
-.troop-detail-logo-link {
-  float: left;
-  margin: 0 24px 16px 0;
-  border-radius: 18px;
-  text-decoration: none;
+.troop-detail-hero-text {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.homepage-single.troop-detail .troop-detail-hero h1 {
+  margin: 0;
+}
+
+.homepage-single.troop-detail .troop-detail-hero .homepage-lead {
+  margin: 0;
 }
 
 .troop-detail-logo {
-  width: min(220px, 60vw);
-  height: auto;
-  border-radius: 18px;
+  width: clamp(72px, 14vw, 104px);
+  height: clamp(72px, 14vw, 104px);
+  flex-shrink: 0;
+  object-fit: contain;
+  border-radius: 20px;
   border: 1px solid rgba(4, 55, 44, 0.12);
   background: rgba(255, 255, 255, 0.96);
-  padding: 16px;
+  padding: 10px;
 }
 
-.troop-detail-copy {
-  display: block;
-  max-width: 780px;
-}
-
-.troop-detail-copy p {
-  margin: 0 0 12px;
-}
-
-.troop-detail-copy p:last-child {
-  margin-bottom: 0;
-}
-
-.troop-detail-card::after {
-  content: '';
-  display: block;
-  clear: both;
-}
-
-@media (max-width: 720px) {
-  .troop-detail-logo-link {
-    float: none;
-    margin: 0 0 16px;
+@media (max-width: 540px) {
+  .troop-detail-hero {
+    align-items: flex-start;
+    gap: 14px;
   }
 }
 
@@ -2026,11 +2019,6 @@
 .homepage-card .troop-leader-empty {
   margin: 0;
   color: var(--text-muted);
-}
-
-.troop-leader-card .troop-website-link {
-  display: inline-block;
-  margin-top: 12px;
 }
 
 .homepage-card .troop-leaders-intro {
