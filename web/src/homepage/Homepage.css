@@ -1931,6 +1931,14 @@
   object-fit: contain;
 }
 
+.troop-card-contact {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.86rem;
+  color: rgba(4, 55, 44, 0.75);
+}
+
 .troop-website-link {
   align-self: flex-start;
   text-decoration: none;
@@ -1987,6 +1995,139 @@
   .troop-detail-logo-link {
     float: none;
     margin: 0 0 16px;
+  }
+}
+
+.troop-leader-card,
+.troop-leaders-card {
+  margin-top: 20px;
+  text-align: left;
+}
+
+.troop-leader-card h2,
+.troop-leaders-card h2 {
+  margin: 0 0 12px;
+}
+
+.homepage-card .troop-leader-name {
+  margin: 0 0 8px;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.troop-leader-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+  font-weight: 600;
+  color: rgba(4, 55, 44, 0.9);
+}
+
+.homepage-card .troop-leader-empty {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.troop-leader-card .troop-website-link {
+  display: inline-block;
+  margin-top: 12px;
+}
+
+.homepage-card .troop-leaders-intro {
+  margin: 0 0 20px;
+  color: var(--text-muted);
+}
+
+.troop-leaders-group + .troop-leaders-group {
+  margin-top: 28px;
+}
+
+.troop-leaders-group h3 {
+  margin: 0 0 12px;
+  font-size: 1rem;
+  color: rgba(4, 55, 44, 0.8);
+}
+
+.troop-leaders-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 18px;
+  border-left: 2px solid rgba(4, 55, 44, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.troop-leaders-timeline li {
+  position: relative;
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  gap: 2px 16px;
+  align-items: baseline;
+}
+
+.troop-leaders-timeline li::before {
+  content: '';
+  position: absolute;
+  left: -25px;
+  top: 6px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid rgba(4, 55, 44, 0.3);
+}
+
+.troop-leaders-timeline li:first-child::before {
+  background: #1a5c94;
+  border-color: #1a5c94;
+}
+
+.troop-leader-term {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: rgba(4, 55, 44, 0.65);
+  white-space: nowrap;
+}
+
+.troop-leader-person {
+  font-weight: 600;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.troop-leader-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(26, 92, 148, 0.12);
+  color: #1a5c94;
+}
+
+.troop-leader-note {
+  grid-column: 2;
+  font-size: 0.86rem;
+  color: var(--text-muted);
+}
+
+.homepage-card .troop-leaders-source {
+  margin: 24px 0 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+@media (max-width: 560px) {
+  .troop-leaders-timeline li {
+    grid-template-columns: 1fr;
+  }
+
+  .troop-leader-note {
+    grid-column: 1;
   }
 }
 
