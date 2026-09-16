@@ -15,6 +15,12 @@ import AppFooter from '../components/AppFooter';
 import logo from '../assets/znak_SPTO_transparent.png';
 import { fetchContentArticle, fetchContentArticles, type ContentArticle } from '../data/content';
 import { fetchHomepage, hasSanityConfig, type SanityHomepage } from '../data/sanity';
+import {
+  fetchScheduleEvents,
+  sortScheduleEvents,
+  type ScheduleEvent,
+  type ScheduleEventKind,
+} from '../data/schedule';
 import { fetchAlbumPreview, type GalleryPreview as CachedGalleryPreview } from '../utils/galleryCache';
 import { supabase } from '../supabaseClient';
 import SecretMenuGame from '../secretMenu/SecretMenuGame';
@@ -129,18 +135,8 @@ const NAV_ITEMS = [
   { id: 'kontakty', label: 'Kontakty', href: '/kontakty' },
 ];
 
-type ScheduleEventKind = 'event' | 'assembly' | 'staff';
-
-type ScheduleEvent = {
-  name: string;
-  start: string;
-  end?: string;
-  kind: ScheduleEventKind;
-  note?: string;
-  href?: string;
-};
-
-const SCHOOL_YEAR_EVENTS: ScheduleEvent[] = [
+// Záložní seznam pro případ, že se termíny z /api/content/schedule nenačtou.
+const FALLBACK_SCHEDULE_EVENTS: ScheduleEvent[] = [
   { name: 'Sněm SPTO', start: '2026-09-08', kind: 'assembly' },
   { name: 'ZaPsem', start: '2026-10-03', kind: 'event' },
   { name: 'Štáb SPTO', start: '2026-10-13', kind: 'staff' },
@@ -1911,6 +1907,37 @@ const EMPTY_DOCUMENT_FORM: EditorDocumentFormState = {
   published: true,
 };
 
+type EditorScheduleEvent = {
+  id: string;
+  name: string;
+  start_date: string;
+  end_date?: string | null;
+  kind: ScheduleEventKind;
+  note?: string | null;
+  href?: string | null;
+  published: boolean;
+};
+
+type EditorScheduleFormState = {
+  name: string;
+  start_date: string;
+  end_date: string;
+  kind: ScheduleEventKind;
+  note: string;
+  href: string;
+  published: boolean;
+};
+
+const EMPTY_SCHEDULE_FORM: EditorScheduleFormState = {
+  name: '',
+  start_date: '',
+  end_date: '',
+  kind: 'event',
+  note: '',
+  href: '',
+  published: true,
+};
+
 function RedakcePage() {
   const [session, setSession] = useState<'checking' | 'unauth' | 'auth'>('checking');
   const [password, setPassword] = useState('');
@@ -1942,6 +1969,11 @@ function RedakcePage() {
   const [documentSaving, setDocumentSaving] = useState(false);
   const [documentUploading, setDocumentUploading] = useState(false);
   const [documentDragActive, setDocumentDragActive] = useState(false);
+  const [scheduleEvents, setScheduleEvents] = useState<EditorScheduleEvent[]>([]);
+  const [activeScheduleId, setActiveScheduleId] = useState<string | null>(null);
+  const [scheduleForm, setScheduleForm] = useState<EditorScheduleFormState>(EMPTY_SCHEDULE_FORM);
+  const [scheduleMessage, setScheduleMessage] = useState<string | null>(null);
+  const [scheduleSaving, setScheduleSaving] = useState(false);
   const bodyEditorRef = useRef<HTMLDivElement | null>(null);
 
   const loadArticles = () =>
@@ -2018,6 +2050,16 @@ function RedakcePage() {
       })
       .catch(() => {
         setDocuments([]);
+      });
+
+  const loadScheduleEvents = () =>
+    fetch('/api/content/admin/schedule', { credentials: 'include' })
+      .then((response) => (response.ok ? response.json() : Promise.reject()))
+      .then((data) => {
+        setScheduleEvents((data.events ?? []) as EditorScheduleEvent[]);
+      })
+      .catch(() => {
+        setScheduleEvents([]);
       });
 
   const syncBodyFromEditor = useCallback(() => {
@@ -2199,6 +2241,7 @@ function RedakcePage() {
           loadLeagueScores();
           loadAlbumTitles();
           loadDocuments();
+          loadScheduleEvents();
         }
       })
       .catch(() => {
@@ -2233,6 +2276,7 @@ function RedakcePage() {
         loadLeagueScores();
         loadAlbumTitles();
         loadDocuments();
+        loadScheduleEvents();
         return loadArticles();
       })
       .catch((error) => {
@@ -2857,6 +2901,117 @@ function RedakcePage() {
 
   const visibleDocuments =
     documentFilter === 'all' ? documents : documents.filter((doc) => doc.kind === documentFilter);
+
+  const updateScheduleField = <Key extends keyof EditorScheduleFormState>(
+    key: Key,
+    value: EditorScheduleFormState[Key],
+  ) => {
+    setScheduleForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const resetScheduleForm = () => {
+    setActiveScheduleId(null);
+    setScheduleForm(EMPTY_SCHEDULE_FORM);
+    setScheduleMessage(null);
+  };
+
+  const selectScheduleEvent = (entry: EditorScheduleEvent) => {
+    setActiveScheduleId(entry.id);
+    setScheduleMessage(null);
+    setScheduleForm({
+      name: entry.name,
+      start_date: entry.start_date,
+      end_date: entry.end_date ?? '',
+      kind: entry.kind,
+      note: entry.note ?? '',
+      href: entry.href ?? '',
+      published: entry.published,
+    });
+  };
+
+  const handleScheduleSave = () => {
+    const name = scheduleForm.name.trim();
+    if (!name) {
+      setScheduleMessage('Vyplň název akce.');
+      return;
+    }
+    if (!scheduleForm.start_date) {
+      setScheduleMessage('Vyplň datum akce.');
+      return;
+    }
+    if (scheduleForm.end_date && scheduleForm.end_date < scheduleForm.start_date) {
+      setScheduleMessage('Konec akce nemůže být dřív než začátek.');
+      return;
+    }
+
+    const body = {
+      name,
+      start_date: scheduleForm.start_date,
+      end_date: scheduleForm.end_date,
+      kind: scheduleForm.kind,
+      note: scheduleForm.note,
+      href: scheduleForm.href,
+      published: scheduleForm.published,
+    };
+
+    setScheduleSaving(true);
+    setScheduleMessage(null);
+    fetch(
+      activeScheduleId ? `/api/content/admin/schedule/${activeScheduleId}` : '/api/content/admin/schedule',
+      {
+        method: activeScheduleId ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+      },
+    )
+      .then(async (response) => {
+        const payload = (await response.json().catch(() => ({}))) as { error?: string; event?: EditorScheduleEvent };
+        if (!response.ok) {
+          throw new Error(payload.error || 'Uložení se nezdařilo.');
+        }
+        setScheduleMessage('Termín byl uložen.');
+        if (payload.event) {
+          setActiveScheduleId(payload.event.id);
+        }
+        return loadScheduleEvents();
+      })
+      .catch((error) => {
+        setScheduleMessage(error instanceof Error ? error.message : 'Uložení se nezdařilo.');
+      })
+      .finally(() => {
+        setScheduleSaving(false);
+      });
+  };
+
+  const handleScheduleDelete = () => {
+    if (!activeScheduleId) {
+      return;
+    }
+    if (!window.confirm('Opravdu smazat tento termín?')) {
+      return;
+    }
+    setScheduleSaving(true);
+    fetch(`/api/content/admin/schedule/${activeScheduleId}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error('Smazání se nezdařilo.');
+        }
+        setActiveScheduleId(null);
+        setScheduleForm(EMPTY_SCHEDULE_FORM);
+        setScheduleMessage('Termín byl smazán.');
+        return loadScheduleEvents();
+      })
+      .catch((error) => {
+        setScheduleMessage(error instanceof Error ? error.message : 'Smazání se nezdařilo.');
+      })
+      .finally(() => {
+        setScheduleSaving(false);
+      });
+  };
 
   const selectedLeagueSeason =
     leagueData.seasons.find((season) => season.id === selectedLeagueSeasonId) ??
@@ -3553,6 +3708,152 @@ function RedakcePage() {
                       disabled={documentSaving || documentUploading}
                     >
                       {documentSaving ? 'Ukládám…' : 'Uložit'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="homepage-card editor-documents editor-schedule">
+              <div className="editor-documents-header">
+                <div>
+                  <h2>Termíny</h2>
+                  <p>
+                    Akce, sněmy a štáby v Plánu akcí. Seznam se sám dělí na nejbližší a proběhlé, řadí se podle data.
+                  </p>
+                </div>
+                <div className="editor-documents-actions">
+                  <button type="button" className="homepage-button homepage-button--ghost" onClick={resetScheduleForm}>
+                    Nový
+                  </button>
+                  <button
+                    type="button"
+                    className="homepage-button homepage-button--ghost"
+                    onClick={loadScheduleEvents}
+                  >
+                    Obnovit
+                  </button>
+                </div>
+              </div>
+
+              <div className="editor-documents-grid">
+                <div className="editor-documents-list-panel">
+                  <ul className="editor-list">
+                    {scheduleEvents.length === 0 ? (
+                      <li className="editor-empty">Zatím tu nic není. Klikni na „Nový“ a přidej první termín.</li>
+                    ) : (
+                      scheduleEvents.map((entry) => (
+                        <li key={entry.id}>
+                          <button
+                            type="button"
+                            className={`editor-list-item${entry.id === activeScheduleId ? ' is-active' : ''}`}
+                            onClick={() => selectScheduleEvent(entry)}
+                          >
+                            <span>{entry.name}</span>
+                            <small>
+                              {SCHEDULE_KIND_LABELS[entry.kind]}
+                              {` · ${formatDocumentDate(entry.start_date)}`}
+                              {entry.end_date ? ` – ${formatDocumentDate(entry.end_date)}` : ''}
+                              {entry.published ? '' : ' · skryto'}
+                            </small>
+                          </button>
+                        </li>
+                      ))
+                    )}
+                  </ul>
+                </div>
+
+                <div className="editor-form editor-documents-form">
+                  <h3>{activeScheduleId ? 'Upravit termín' : 'Nový termín'}</h3>
+                  <div className="editor-form-grid">
+                    <label>
+                      Název
+                      <input
+                        value={scheduleForm.name}
+                        onChange={(event) => updateScheduleField('name', event.target.value)}
+                        placeholder="Např. Setonův závod"
+                      />
+                    </label>
+                    <label>
+                      Druh
+                      <select
+                        value={scheduleForm.kind}
+                        onChange={(event) => updateScheduleField('kind', event.target.value as ScheduleEventKind)}
+                      >
+                        {(Object.keys(SCHEDULE_KIND_LABELS) as ScheduleEventKind[]).map((kind) => (
+                          <option value={kind} key={kind}>
+                            {SCHEDULE_KIND_LABELS[kind]}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      Datum
+                      <input
+                        type="date"
+                        value={scheduleForm.start_date}
+                        onChange={(event) => updateScheduleField('start_date', event.target.value)}
+                      />
+                    </label>
+                    <label>
+                      Konec (jen u vícedenních)
+                      <input
+                        type="date"
+                        value={scheduleForm.end_date}
+                        onChange={(event) => updateScheduleField('end_date', event.target.value)}
+                      />
+                    </label>
+                  </div>
+
+                  <label>
+                    Odkaz
+                    <input
+                      value={scheduleForm.href}
+                      onChange={(event) => updateScheduleField('href', event.target.value)}
+                      placeholder="/souteze/setonuv-zavod"
+                    />
+                  </label>
+
+                  <label>
+                    Poznámka
+                    <input
+                      value={scheduleForm.note}
+                      onChange={(event) => updateScheduleField('note', event.target.value)}
+                      placeholder="Např. Grilovací sněm"
+                    />
+                  </label>
+
+                  <div className="editor-documents-flags">
+                    <label className="editor-check">
+                      <input
+                        type="checkbox"
+                        checked={scheduleForm.published}
+                        onChange={(event) => updateScheduleField('published', event.target.checked)}
+                      />
+                      <span>Zobrazovat na webu</span>
+                    </label>
+                  </div>
+
+                  {scheduleMessage ? <p className="homepage-alert">{scheduleMessage}</p> : null}
+
+                  <div className="editor-buttons">
+                    {activeScheduleId ? (
+                      <button
+                        type="button"
+                        className="homepage-button homepage-button--ghost"
+                        onClick={handleScheduleDelete}
+                        disabled={scheduleSaving}
+                      >
+                        Smazat
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      className="homepage-button"
+                      onClick={handleScheduleSave}
+                      disabled={scheduleSaving}
+                    >
+                      {scheduleSaving ? 'Ukládám…' : 'Uložit'}
                     </button>
                   </div>
                 </div>
@@ -6225,10 +6526,109 @@ function formatScheduleDate(event: ScheduleEvent) {
   return `${formatter.format(start)} – ${formatter.format(end)}`;
 }
 
+// Kompaktní datum do dlaždice seznamu: velké číslo dne a pod ním měsíc s rokem.
+function formatScheduleDateParts(event: ScheduleEvent) {
+  const shortMonth = new Intl.DateTimeFormat('cs-CZ', { month: 'short' });
+  const weekdayFormatter = new Intl.DateTimeFormat('cs-CZ', { weekday: 'long' });
+  const start = parseScheduleDate(event.start);
+  const end = event.end ? parseScheduleDate(event.end) : null;
+  if (!end) {
+    return {
+      day: `${start.getDate()}.`,
+      month: `${shortMonth.format(start)} ${start.getFullYear()}`,
+      weekday: weekdayFormatter.format(start),
+    };
+  }
+  const sameMonth = start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear();
+  return {
+    day: sameMonth
+      ? `${start.getDate()}.–${end.getDate()}.`
+      : `${start.getDate()}. ${shortMonth.format(start)} – ${end.getDate()}.`,
+    month: sameMonth
+      ? `${shortMonth.format(start)} ${start.getFullYear()}`
+      : `${shortMonth.format(end)} ${end.getFullYear()}`,
+    weekday: null,
+  };
+}
+
+function ScheduleEventList({
+  events,
+  highlightFirst = false,
+  muted = false,
+}: {
+  events: ScheduleEvent[];
+  highlightFirst?: boolean;
+  muted?: boolean;
+}) {
+  return (
+    <ol className={`schedule-list${muted ? ' schedule-list--muted' : ''}`}>
+      {events.map((event, index) => {
+        const parts = formatScheduleDateParts(event);
+        const meta = [parts.weekday, event.note].filter(Boolean).join(' · ');
+        return (
+          <li
+            className={`schedule-list-item schedule-list-item--${event.kind}${highlightFirst && index === 0 ? ' is-next' : ''}`}
+            key={`${event.name}-${event.start}`}
+          >
+            <time className="schedule-list-date" dateTime={event.start} title={formatScheduleDate(event)}>
+              <span className="schedule-list-day">{parts.day}</span>
+              <span className="schedule-list-month">{parts.month}</span>
+            </time>
+            <div className="schedule-list-copy">
+              <span className="schedule-list-kind">{SCHEDULE_KIND_LABELS[event.kind]}</span>
+              {event.href ? (
+                <a className="schedule-event-link" href={event.href}>{event.name}</a>
+              ) : (
+                <strong>{event.name}</strong>
+              )}
+              {meta ? <small>{meta}</small> : null}
+            </div>
+            {highlightFirst && index === 0 ? <span className="schedule-list-next">Nejbližší</span> : null}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
 function eventOccursOn(event: ScheduleEvent, date: Date) {
   const timestamp = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
   return timestamp >= parseScheduleDate(event.start).getTime()
     && timestamp <= parseScheduleDate(event.end ?? event.start).getTime();
+}
+
+const SCHEDULE_MONTHS_IN_SCHOOL_YEAR = 10;
+
+// Školní rok začíná v září, takže leden až srpen ještě patří k ročníku, který začal loni.
+function resolveSchoolYearStart(today: Date) {
+  return today.getMonth() >= 8 ? today.getFullYear() : today.getFullYear() - 1;
+}
+
+function buildScheduleMonths(schoolYearStart: number) {
+  return Array.from({ length: SCHEDULE_MONTHS_IN_SCHOOL_YEAR }, (_, index) => {
+    const date = new Date(schoolYearStart, 8 + index, 1);
+    return {
+      year: date.getFullYear(),
+      month: date.getMonth(),
+      label: new Intl.DateTimeFormat('cs-CZ', { month: 'long' }).format(date),
+    };
+  });
+}
+
+// Prázdniny mimo rozsah kalendáře spadnou na první měsíc, jinak otevřeme aktuální.
+function resolveCurrentMonthIndex(months: { year: number; month: number }[], today: Date) {
+  const index = months.findIndex(
+    (entry) => entry.year === today.getFullYear() && entry.month === today.getMonth(),
+  );
+  return index >= 0 ? index : 0;
+}
+
+function startOfDay(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function scheduleEventEnd(event: ScheduleEvent) {
+  return parseScheduleDate(event.end ?? event.start);
 }
 
 function scheduleDateKey(date: Date) {
@@ -6238,12 +6638,16 @@ function scheduleDateKey(date: Date) {
 function ScheduleMonth({
   year,
   month,
+  events: monthEvents,
   selectedDate,
+  todayKey,
   onSelectDate,
 }: {
   year: number;
   month: number;
+  events: ScheduleEvent[];
   selectedDate: string | null;
+  todayKey: string;
   onSelectDate: (date: string) => void;
 }) {
   const firstDay = new Date(year, month, 1);
@@ -6264,8 +6668,10 @@ function ScheduleMonth({
       <div className="schedule-days">
         {cells.map((date, index) => {
           if (!date) return <span className="schedule-day schedule-day--empty" key={`empty-${index}`} aria-hidden="true" />;
-          const events = SCHOOL_YEAR_EVENTS.filter((event) => eventOccursOn(event, date));
+          const events = monthEvents.filter((event) => eventOccursOn(event, date));
           const dateKey = scheduleDateKey(date);
+          const isToday = dateKey === todayKey;
+          const todayClass = isToday ? ' schedule-day--today' : '';
           const content = (
             <>
               <span className="schedule-day-number">{date.getDate()}</span>
@@ -6279,16 +6685,19 @@ function ScheduleMonth({
           return events.length > 0 ? (
             <button
               type="button"
-              className={`schedule-day schedule-day--active schedule-day--button${selectedDate === dateKey ? ' is-selected' : ''}`}
+              className={`schedule-day schedule-day--active schedule-day--button${todayClass}${selectedDate === dateKey ? ' is-selected' : ''}`}
               key={dateKey}
               onClick={() => onSelectDate(dateKey)}
-              aria-label={`${date.getDate()}. ${monthName}: ${events.map((event) => event.name).join(', ')}`}
+              aria-label={`${date.getDate()}. ${monthName}${isToday ? ' (dnes)' : ''}: ${events.map((event) => event.name).join(', ')}`}
               aria-pressed={selectedDate === dateKey}
+              aria-current={isToday ? 'date' : undefined}
             >
               {content}
             </button>
           ) : (
-            <div className="schedule-day" key={dateKey}>{content}</div>
+            <div className={`schedule-day${todayClass}`} key={dateKey} aria-current={isToday ? 'date' : undefined}>
+              {content}
+            </div>
           );
         })}
       </div>
@@ -6297,19 +6706,34 @@ function ScheduleMonth({
 }
 
 function SchedulePage() {
-  const [selectedMonthIndex, setSelectedMonthIndex] = useState(0);
+  const today = useMemo(() => startOfDay(new Date()), []);
+  const schoolYearStart = resolveSchoolYearStart(today);
+  const months = useMemo(() => buildScheduleMonths(schoolYearStart), [schoolYearStart]);
+  const [events, setEvents] = useState<ScheduleEvent[]>(() => sortScheduleEvents(FALLBACK_SCHEDULE_EVENTS));
+  const [selectedMonthIndex, setSelectedMonthIndex] = useState(() => resolveCurrentMonthIndex(months, today));
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<string | null>(null);
-  const months = Array.from({ length: 10 }, (_, index) => {
-    const date = new Date(2026, 8 + index, 1);
-    return {
-      year: date.getFullYear(),
-      month: date.getMonth(),
-      label: new Intl.DateTimeFormat('cs-CZ', { month: 'long' }).format(date),
+
+  useEffect(() => {
+    let active = true;
+    fetchScheduleEvents().then((remote) => {
+      if (active && remote) {
+        setEvents(remote);
+      }
+    });
+    return () => {
+      active = false;
     };
-  });
+  }, []);
+
+  // Akce trvající víc dní patří mezi nadcházející až do svého posledního dne.
+  const upcomingEvents = events.filter((event) => scheduleEventEnd(event).getTime() >= today.getTime());
+  const pastEvents = events
+    .filter((event) => scheduleEventEnd(event).getTime() < today.getTime())
+    .reverse();
+
   const selectedMonth = months[selectedMonthIndex];
   const selectedCalendarEvents = selectedCalendarDate
-    ? SCHOOL_YEAR_EVENTS.filter((event) => eventOccursOn(event, parseScheduleDate(selectedCalendarDate)))
+    ? events.filter((event) => eventOccursOn(event, parseScheduleDate(selectedCalendarDate)))
     : [];
   const changeMonth = (nextIndex: number) => {
     setSelectedMonthIndex(nextIndex);
@@ -6320,9 +6744,11 @@ function SchedulePage() {
     <SiteShell>
       <main className="homepage-main homepage-single schedule-page" aria-labelledby="schedule-heading">
         <div className="schedule-intro">
-          <span className="schedule-eyebrow">Školní rok 2026/2027</span>
+          <span className="schedule-eyebrow">Školní rok {schoolYearStart}/{schoolYearStart + 1}</span>
           <h1 id="schedule-heading">Kalendář SPTO</h1>
-          <p className="homepage-lead">Přehled akcí Zelené ligy, sněmů a štábů od září 2026 do června 2027.</p>
+          <p className="homepage-lead">
+            Přehled akcí Zelené ligy, sněmů a štábů od září {schoolYearStart} do června {schoolYearStart + 1}.
+          </p>
         </div>
 
         <div className="schedule-legend" aria-label="Legenda kalendáře">
@@ -6336,23 +6762,22 @@ function SchedulePage() {
             <h2 id="schedule-list-heading">Nejbližší termíny</h2>
             <span className="homepage-section-accent" aria-hidden="true" />
           </div>
-          <ol className="schedule-list">
-            {SCHOOL_YEAR_EVENTS.map((event) => (
-              <li className={`schedule-list-item schedule-list-item--${event.kind}`} key={`${event.name}-${event.start}`}>
-                <time dateTime={event.start} className="schedule-list-date">{formatScheduleDate(event)}</time>
-                <div className="schedule-list-copy">
-                  <span className="schedule-list-kind">{SCHEDULE_KIND_LABELS[event.kind]}</span>
-                  {event.href ? (
-                    <a className="schedule-event-link" href={event.href}>{event.name}</a>
-                  ) : (
-                    <strong>{event.name}</strong>
-                  )}
-                  {event.note ? <small>{event.note}</small> : null}
-                </div>
-              </li>
-            ))}
-          </ol>
+          {upcomingEvents.length > 0 ? (
+            <ScheduleEventList events={upcomingEvents} highlightFirst />
+          ) : (
+            <p className="schedule-empty">Do konce školního roku už nemáme naplánovaný žádný další termín.</p>
+          )}
         </section>
+
+        {pastEvents.length > 0 ? (
+          <details className="homepage-card schedule-past">
+            <summary className="schedule-past-summary">
+              <span>Co už proběhlo</span>
+              <span className="schedule-past-count">{pastEvents.length}</span>
+            </summary>
+            <ScheduleEventList events={pastEvents} muted />
+          </details>
+        ) : null}
 
         <section className="schedule-calendar-section" aria-labelledby="schedule-calendar-heading">
           <div className="homepage-section-header homepage-section-header--left">
@@ -6398,7 +6823,9 @@ function SchedulePage() {
               <ScheduleMonth
                 year={selectedMonth.year}
                 month={selectedMonth.month}
+                events={events}
                 selectedDate={selectedCalendarDate}
+                todayKey={scheduleDateKey(today)}
                 onSelectDate={setSelectedCalendarDate}
               />
             </div>
