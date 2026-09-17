@@ -164,6 +164,7 @@ type DocumentRow = {
   file_name: string | null;
   file_size: number | null;
   external_url: string | null;
+  links?: unknown;
   cover_url: string | null;
   visibility: string;
   published: boolean;
@@ -1566,6 +1567,26 @@ function resolveDocumentExtension(fileName: string, contentType: string): string
   return 'pdf';
 }
 
+// Odkazy chodí z redakce jako pole { label, url }. Pouštíme dál jen http(s), ať se do stránky nedostane javascript:.
+const DOCUMENT_LINKS_LIMIT = 20;
+
+function sanitizeDocumentLinks(raw: unknown): { label: string; url: string }[] {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  const links: { label: string; url: string }[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const value = item as Record<string, unknown>;
+    const url = typeof value.url === 'string' ? value.url.trim() : '';
+    if (!/^https?:\/\/\S/i.test(url)) continue;
+    const label = typeof value.label === 'string' ? value.label.trim().slice(0, 120) : '';
+    links.push({ label, url: url.slice(0, 2000) });
+    if (links.length >= DOCUMENT_LINKS_LIMIT) break;
+  }
+  return links;
+}
+
 function parseDocumentPayload(payload: Record<string, unknown>, partial: boolean): Record<string, unknown> {
   const update: Record<string, unknown> = {};
   const readText = (key: string) => {
@@ -1620,6 +1641,13 @@ function parseDocumentPayload(payload: Record<string, unknown>, partial: boolean
   readText('external_url');
   readText('cover_url');
 
+  // Redakce posílá celý seznam naráz. external_url držíme v souladu s prvním odkazem kvůli starším řádkům.
+  if (Array.isArray(payload.links)) {
+    const links = sanitizeDocumentLinks(payload.links);
+    update.links = links;
+    update.external_url = links[0]?.url ?? null;
+  }
+
   return update;
 }
 
@@ -1637,6 +1665,7 @@ function toPublicDocument(row: DocumentRow) {
     fileName: restricted ? null : row.file_name,
     fileSize: restricted ? null : row.file_size,
     externalUrl: restricted ? null : row.external_url,
+    links: restricted ? [] : sanitizeDocumentLinks(row.links),
     coverUrl: row.cover_url,
     orderIndex: row.order_index,
     scheduleEventId: row.schedule_event_id ?? null,
@@ -1704,7 +1733,7 @@ async function handleAdminDocuments(req: any, res: any) {
       return;
     }
     if (!values.file_url && !values.external_url) {
-      res.status(400).json({ error: 'Vyplň soubor nebo odkaz.' });
+      res.status(400).json({ error: 'Nahraj soubor nebo vyplň aspoň jeden odkaz.' });
       return;
     }
 

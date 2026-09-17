@@ -742,6 +742,22 @@
   line-height: 1.5;
 }
 
+/* Dlouhé adresy z mailu se musí umět zalomit, jinak rozbijí sloupec s termínem. */
+.schedule-doc-note a,
+.homepage-doc-text a,
+.document-link-list a {
+  color: #0055a4;
+  overflow-wrap: anywhere;
+}
+
+.document-link-list {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .schedule-doc-link {
   padding: 3px 10px;
   border-radius: 999px;
@@ -2884,6 +2900,65 @@ a.schedule-doc-link:focus-visible {
   margin-top: 6px;
   color: rgba(4, 55, 44, 0.62);
   font-size: 0.82rem;
+}
+
+/* Opakovatelný seznam odkazů u dokumentu – název vlevo, adresa vpravo, křížek na odebrání. */
+.editor-links {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.editor-links-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-weight: 600;
+}
+
+.editor-link-add {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(4, 55, 44, 0.2);
+  background: #fff;
+  color: #04372c;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.editor-link-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.editor-form .editor-link-row input {
+  margin-top: 0;
+}
+
+.editor-link-remove {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid rgba(4, 55, 44, 0.2);
+  background: #fff;
+  color: #9b2c2c;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+@media (max-width: 640px) {
+  .editor-link-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .editor-link-row input:first-child {
+    grid-column: 1 / -1;
+  }
 }
 
 .editor-rich-toolbar {

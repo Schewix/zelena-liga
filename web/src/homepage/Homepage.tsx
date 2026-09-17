@@ -1,5 +1,6 @@
 import './Homepage.css';
 import {
+  Fragment,
   useCallback,
   useEffect,
   useMemo,
@@ -18,8 +19,10 @@ import {
   documentLink,
   fetchDocuments,
   sortDocumentsByYearDesc,
+  splitTextLinks,
   type SptoDocument,
   type SptoDocumentKind,
+  type SptoDocumentLink,
 } from '../data/documents';
 import { fetchHomepage, hasSanityConfig, type SanityHomepage } from '../data/sanity';
 import {
@@ -1606,10 +1609,47 @@ function documentParagraphs(document: SptoDocument) {
     .filter(Boolean);
 }
 
+// V mailu od pořadatele jsou odkazy holé, na webu z nich děláme klikatelné.
+function DocumentParagraph({ text, className }: { text: string; className?: string }) {
+  return (
+    <p className={className}>
+      {splitTextLinks(text).map((segment, index) =>
+        segment.kind === 'link' ? (
+          <a href={segment.url} target="_blank" rel="noreferrer" key={index}>
+            {segment.value}
+          </a>
+        ) : (
+          <Fragment key={index}>{segment.value}</Fragment>
+        ),
+      )}
+    </p>
+  );
+}
+
+// Pojmenované odkazy zadané v redakci – tabulka na odjezd, přihlašovna a podobně.
+function DocumentLinkList({ links }: { links: SptoDocumentLink[] }) {
+  if (links.length === 0) {
+    return null;
+  }
+  return (
+    <ul className="document-link-list">
+      {links.map((link) => (
+        <li key={link.url}>
+          <a href={link.url} target="_blank" rel="noreferrer">
+            {link.label}
+          </a>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 // Doplňující informace bývají celý zvací e-mail, takže je schováme pod rozklikávátko a seznam termínů zůstane přehledný.
 function ScheduleDocumentNote({ document }: { document: SptoDocument }) {
   const paragraphs = documentParagraphs(document);
-  if (paragraphs.length === 0) {
+  // Odkazy stojí za rozkliknutí i u dokumentu bez popisu, proto se na text neváží.
+  const extraLinks = document.links.slice(document.fileUrl ? 0 : 1);
+  if (paragraphs.length === 0 && extraLinks.length === 0) {
     return null;
   }
   const label = DOCUMENT_KIND_LABELS[document.kind];
@@ -1617,8 +1657,9 @@ function ScheduleDocumentNote({ document }: { document: SptoDocument }) {
     <details className="schedule-doc-note">
       <summary>{document.kind === 'ostatni' ? document.title : `${label} – podrobnosti`}</summary>
       {paragraphs.map((paragraph, index) => (
-        <p key={index}>{paragraph}</p>
+        <DocumentParagraph text={paragraph} key={index} />
       ))}
+      <DocumentLinkList links={extraLinks} />
     </details>
   );
 }
@@ -1671,10 +1712,9 @@ function CompetitionDocumentCard({ document }: { document: SptoDocument }) {
     <div className="homepage-card">
       <h2>{label}</h2>
       {paragraphs.map((paragraph, index) => (
-        <p className="homepage-doc-text" key={index}>
-          {paragraph}
-        </p>
+        <DocumentParagraph className="homepage-doc-text" text={paragraph} key={index} />
       ))}
+      <DocumentLinkList links={document.links.slice(document.fileUrl ? 0 : 1)} />
       {link === null ? (
         <p className="homepage-doc-text">Dokument je jen pro vedoucí.</p>
       ) : document.fileUrl && isPdfDocument(document) ? (
@@ -2035,6 +2075,7 @@ type EditorDocument = {
   file_name?: string | null;
   file_size?: number | null;
   external_url?: string | null;
+  links?: unknown;
   cover_url?: string | null;
   visibility: 'public' | 'internal';
   published: boolean;
@@ -2042,6 +2083,25 @@ type EditorDocument = {
   competition_slug?: string | null;
   created_at?: string | null;
 };
+
+type EditorDocumentLink = { label: string; url: string };
+
+// Řádky nahrané před sloupcem links mají odkaz jen v external_url, ať o něj redakce nepřijde.
+function editorDocumentLinks(doc: EditorDocument): EditorDocumentLink[] {
+  const stored = Array.isArray(doc.links)
+    ? doc.links.flatMap((item) => {
+        if (!item || typeof item !== 'object') return [];
+        const value = item as Record<string, unknown>;
+        const url = typeof value.url === 'string' ? value.url : '';
+        if (url.trim().length === 0) return [];
+        return [{ label: typeof value.label === 'string' ? value.label : '', url }];
+      })
+    : [];
+  if (stored.length > 0) {
+    return stored;
+  }
+  return doc.external_url ? [{ label: '', url: doc.external_url }] : [];
+}
 
 type EditorDocumentFormState = {
   kind: SptoDocumentKind;
@@ -2053,7 +2113,7 @@ type EditorDocumentFormState = {
   file_path: string;
   file_name: string;
   file_size: number | null;
-  external_url: string;
+  links: EditorDocumentLink[];
   cover_url: string;
   visibility: 'public' | 'internal';
   published: boolean;
@@ -2071,7 +2131,7 @@ const EMPTY_DOCUMENT_FORM: EditorDocumentFormState = {
   file_path: '',
   file_name: '',
   file_size: null,
-  external_url: '',
+  links: [],
   cover_url: '',
   visibility: 'public',
   published: true,
@@ -2883,6 +2943,21 @@ function RedakcePage() {
     setDocumentMessage(null);
   };
 
+  const addDocumentLink = () => {
+    setDocumentForm((prev) => ({ ...prev, links: [...prev.links, { label: '', url: '' }] }));
+  };
+
+  const updateDocumentLink = (index: number, key: keyof EditorDocumentLink, value: string) => {
+    setDocumentForm((prev) => ({
+      ...prev,
+      links: prev.links.map((link, position) => (position === index ? { ...link, [key]: value } : link)),
+    }));
+  };
+
+  const removeDocumentLink = (index: number) => {
+    setDocumentForm((prev) => ({ ...prev, links: prev.links.filter((_, position) => position !== index) }));
+  };
+
   const selectDocument = (doc: EditorDocument) => {
     setActiveDocumentId(doc.id);
     setDocumentMessage(null);
@@ -2896,7 +2971,7 @@ function RedakcePage() {
       file_path: doc.file_path ?? '',
       file_name: doc.file_name ?? '',
       file_size: doc.file_size ?? null,
-      external_url: doc.external_url ?? '',
+      links: editorDocumentLinks(doc),
       cover_url: doc.cover_url ?? '',
       visibility: doc.visibility,
       published: doc.published,
@@ -2992,8 +3067,15 @@ function RedakcePage() {
       setDocumentMessage('Vyplň název dokumentu.');
       return;
     }
-    if (!documentForm.file_url.trim() && !documentForm.external_url.trim()) {
-      setDocumentMessage('Nahraj soubor nebo vyplň odkaz.');
+    const links = documentForm.links
+      .map((link) => ({ label: link.label.trim(), url: link.url.trim() }))
+      .filter((link) => link.url.length > 0);
+    if (links.some((link) => !/^https?:\/\/\S/i.test(link.url))) {
+      setDocumentMessage('Odkaz musí začínat na http:// nebo https://.');
+      return;
+    }
+    if (!documentForm.file_url.trim() && links.length === 0) {
+      setDocumentMessage('Nahraj soubor nebo vyplň aspoň jeden odkaz.');
       return;
     }
 
@@ -3008,7 +3090,7 @@ function RedakcePage() {
       file_path: documentForm.file_path,
       file_name: documentForm.file_name,
       file_size: documentForm.file_size,
-      external_url: documentForm.external_url,
+      links,
       cover_url: documentForm.cover_url,
       visibility: documentForm.visibility,
       published: documentForm.published,
@@ -3870,14 +3952,45 @@ function RedakcePage() {
                     {documentForm.cover_url ? <p className="editor-dropzone-file">Obálka nahraná.</p> : null}
                   </div>
 
-                  <label>
-                    Odkaz (přihláška, Disk, Google Doc)
-                    <input
-                      value={documentForm.external_url}
-                      onChange={(event) => updateDocumentField('external_url', event.target.value)}
-                      placeholder="https://…"
-                    />
-                  </label>
+                  <div className="editor-links">
+                    <div className="editor-links-head">
+                      <span>Odkazy (přihlašovna, tabulka na odjezd, Disk…)</span>
+                      <button type="button" className="editor-link-add" onClick={addDocumentLink}>
+                        + Přidat odkaz
+                      </button>
+                    </div>
+                    {documentForm.links.length === 0 ? (
+                      <p className="editor-field-hint">Zatím žádný odkaz. Samotný soubor stačí.</p>
+                    ) : (
+                      documentForm.links.map((link, index) => (
+                        <div className="editor-link-row" key={index}>
+                          <input
+                            value={link.label}
+                            onChange={(event) => updateDocumentLink(index, 'label', event.target.value)}
+                            placeholder="Název odkazu (např. Zápis na autobus)"
+                            aria-label={`Název odkazu ${index + 1}`}
+                          />
+                          <input
+                            value={link.url}
+                            onChange={(event) => updateDocumentLink(index, 'url', event.target.value)}
+                            placeholder="https://…"
+                            aria-label={`Adresa odkazu ${index + 1}`}
+                          />
+                          <button
+                            type="button"
+                            className="editor-link-remove"
+                            onClick={() => removeDocumentLink(index)}
+                            aria-label={`Odebrat odkaz ${index + 1}`}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))
+                    )}
+                    <small className="editor-field-hint">
+                      Bez názvu se ukáže doména. Odkazy se zobrazí v podrobnostech u akce.
+                    </small>
+                  </div>
 
                   <label>
                     Doplňující informace
