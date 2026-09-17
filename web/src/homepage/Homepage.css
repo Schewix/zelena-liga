@@ -2562,6 +2562,84 @@ a.schedule-doc-link:focus-visible {
   width: fit-content;
 }
 
+.error-page {
+  justify-content: center;
+}
+
+.error-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  max-width: 620px;
+  padding: 40px 32px;
+  border-radius: 28px;
+  background: var(--surface-alt);
+  box-shadow: var(--shadow-soft);
+  text-align: center;
+}
+
+/* Číslo chyby je jen dekorace, obsah nese nadpis pod ním. */
+.error-code {
+  font-size: clamp(3.2rem, 12vw, 4.6rem);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: var(--zl-green);
+}
+
+.error-card h1 {
+  margin: 0;
+  font-size: clamp(1.5rem, 5vw, 2rem);
+}
+
+.error-card .homepage-lead {
+  margin: 0;
+}
+
+.error-path {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.error-path code {
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: var(--zl-green-50);
+  font-size: 0.88rem;
+}
+
+.error-links {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.error-links a {
+  display: inline-block;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(4, 55, 44, 0.14);
+  background: #ffffff;
+  color: #04372c;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.error-links a:hover,
+.error-links a:focus-visible {
+  border-color: rgba(4, 55, 44, 0.4);
+  background: var(--zl-green-50);
+  color: #04372c;
+}
+
 .homepage-article-cover {
   width: 100%;
   border-radius: 18px;

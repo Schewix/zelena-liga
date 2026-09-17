@@ -1,4 +1,5 @@
 import React from 'react';
+import AppErrorScreen from './AppErrorScreen';
 
 type ErrorBoundaryProps = {
   children: React.ReactNode;
@@ -6,45 +7,31 @@ type ErrorBoundaryProps = {
 
 type ErrorBoundaryState = {
   hasError: boolean;
-  message: string;
+  detail: string | null;
 };
 
 export default class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   state: ErrorBoundaryState = {
     hasError: false,
-    message: 'Aplikace narazila na chybu.',
+    detail: null,
   };
 
   static getDerivedStateFromError(error: unknown): ErrorBoundaryState {
-    if (error instanceof Error && error.message) {
-      return { hasError: true, message: `Aplikace narazila na chybu: ${error.message}` };
-    }
-    return { hasError: true, message: 'Aplikace narazila na chybu.' };
+    return {
+      hasError: true,
+      detail: error instanceof Error && error.message ? error.message : null,
+    };
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     console.error('Unhandled application error', { error, info });
   }
 
-  handleReload = () => {
-    window.location.reload();
-  };
-
   render() {
     if (!this.state.hasError) {
       return this.props.children;
     }
 
-    return (
-      <div className="app-error-boundary" role="alert">
-        <div className="app-error-boundary__card">
-          <h1>Aplikace narazila na chybu</h1>
-          <p>{this.state.message}</p>
-          <button type="button" onClick={this.handleReload}>
-            Obnovit aplikaci
-          </button>
-        </div>
-      </div>
-    );
+    return <AppErrorScreen detail={this.state.detail} />;
   }
 }

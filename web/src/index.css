@@ -52,11 +52,18 @@ a:focus-visible {
 .app-error-boundary__card {
   background: var(--surface-alt);
   border: 1px solid var(--border);
-  border-radius: 20px;
+  border-radius: 24px;
   box-shadow: var(--shadow-soft);
-  padding: 32px;
+  padding: 36px 32px;
   max-width: 520px;
   text-align: center;
+}
+
+.app-error-boundary__logo {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  margin-bottom: 12px;
 }
 
 .app-error-boundary__card h1 {
@@ -67,6 +74,13 @@ a:focus-visible {
 .app-error-boundary__card p {
   margin: 0 0 24px;
   color: var(--text-muted);
+}
+
+.app-error-boundary__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
 }
 
 .app-error-boundary__card button {
@@ -82,4 +96,42 @@ a:focus-visible {
 .app-error-boundary__card button:hover,
 .app-error-boundary__card button:focus-visible {
   background: var(--py-blue-hover);
+}
+
+.app-error-boundary__link {
+  display: inline-flex;
+  align-items: center;
+  padding: 12px 24px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.app-error-boundary__link:hover,
+.app-error-boundary__link:focus-visible {
+  background: var(--zl-green-50);
+  color: var(--text);
+}
+
+/* Hlášku od Reactu schováme pod rozklikávátko – běžnému návštěvníkovi nic neříká. */
+.app-error-boundary__detail {
+  margin-top: 20px;
+  text-align: left;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.app-error-boundary__detail summary {
+  cursor: pointer;
+}
+
+.app-error-boundary__detail code {
+  display: block;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--zl-green-50);
+  overflow-wrap: anywhere;
 }

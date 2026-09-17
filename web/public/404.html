@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="cs">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, follow" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <title>Stránka nenalezena | Zelená liga</title>
+    <style>
+      :root {
+        --zl-green: #57aa27;
+        --zl-green-50: #eaf6ef;
+        --zl-yellow: #ffd84f;
+        --zl-yellow-600: #ffcc33;
+        --text: #333333;
+        --text-muted: #555555;
+        --border: #cfe9c5;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        box-sizing: border-box;
+        background: var(--zl-green-50);
+        color: var(--text);
+        font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      }
+
+      .card {
+        max-width: 620px;
+        padding: 40px 32px;
+        border-radius: 28px;
+        background: #ffffff;
+        border: 1px solid var(--border);
+        box-shadow: 0 24px 48px rgba(44, 67, 52, 0.12);
+        text-align: center;
+      }
+
+      .logo {
+        width: 72px;
+        height: 72px;
+        object-fit: contain;
+      }
+
+      .code {
+        margin: 12px 0 0;
+        font-size: clamp(3.2rem, 12vw, 4.6rem);
+        font-weight: 900;
+        line-height: 1;
+        letter-spacing: -0.04em;
+        color: var(--zl-green);
+      }
+
+      h1 {
+        margin: 12px 0 8px;
+        font-size: clamp(1.5rem, 5vw, 2rem);
+      }
+
+      p {
+        margin: 0 0 24px;
+        color: var(--text-muted);
+      }
+
+      .cta {
+        display: inline-block;
+        padding: 12px 24px;
+        border-radius: 999px;
+        background: var(--zl-yellow);
+        color: var(--text);
+        font-weight: 700;
+        text-decoration: none;
+        box-shadow: 0 18px 32px rgba(255, 216, 79, 0.35);
+      }
+
+      .cta:hover,
+      .cta:focus-visible {
+        background: var(--zl-yellow-600);
+      }
+
+      ul {
+        list-style: none;
+        margin: 24px 0 0;
+        padding: 0;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px;
+      }
+
+      ul a {
+        display: inline-block;
+        padding: 8px 14px;
+        border-radius: 999px;
+        border: 1px solid rgba(4, 55, 44, 0.14);
+        color: #04372c;
+        font-size: 0.9rem;
+        font-weight: 600;
+        text-decoration: none;
+      }
+
+      ul a:hover,
+      ul a:focus-visible {
+        border-color: rgba(4, 55, 44, 0.4);
+        background: var(--zl-green-50);
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <img class="logo" src="/icon-192.png" alt="" width="72" height="72" />
+      <p class="code">404</p>
+      <h1>Tuhle stránku jsme nenašli</h1>
+      <p>Nejspíš vedla jinam nebo se v adrese ztratilo písmenko. Zkus se odrazit odsud:</p>
+      <a class="cta" href="/">Zpět na hlavní stránku</a>
+      <ul>
+        <li><a href="/plan-akci">Plán akcí</a></li>
+        <li><a href="/aktualni-poradi">Aktuální pořadí</a></li>
+        <li><a href="/clanky">Články a novinky</a></li>
+        <li><a href="/fotogalerie">Fotogalerie</a></li>
+        <li><a href="/souteze">Soutěže</a></li>
+        <li><a href="/oddily">Oddíly SPTO</a></li>
+        <li><a href="/o-spto">O SPTO</a></li>
+        <li><a href="/kontakty">Kontakty</a></li>
+      </ul>
+    </main>
+  </body>
+</html>

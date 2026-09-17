@@ -4,6 +4,7 @@ import './index.css';
 import './auth/fetch';
 import { AuthProvider } from './auth/context';
 import ErrorBoundary from './components/ErrorBoundary';
+import AppErrorScreen from './components/AppErrorScreen';
 import { registerSW } from 'virtual:pwa-register';
 import {
   DESKOVKY_ROUTE_PREFIX,
@@ -407,13 +408,27 @@ function render(element: React.ReactNode) {
   );
 }
 
+// Když se nepodaří stáhnout chunk (výpadek sítě nebo zrovna běžící deploy), ať místo bílé stránky zůstane chybová.
+function renderLoadFailure(what: string, error: unknown) {
+  console.error(`Failed to load ${what}`, error);
+  root.render(
+    <React.StrictMode>
+      <AppErrorScreen
+        title="Stránku se nepodařilo načíst"
+        description="Nepovedlo se stáhnout část aplikace. Může za to výpadek připojení nebo právě nasazovaná nová verze webu."
+        detail={error instanceof Error && error.message ? error.message : null}
+      />
+    </React.StrictMode>,
+  );
+}
+
 if (isSetonMapAdminPath) {
   import('./liveMap/SetonMapAdminApp')
     .then(({ default: SetonMapAdminApp }) => {
       render(<SetonMapAdminApp />);
     })
     .catch((error) => {
-      console.error('Failed to load seton map admin view', error);
+      renderLoadFailure('seton map admin view', error);
     });
 } else if (isSetonMapPath || normalizedPath === MAPA_PROCHODU_ROUTE) {
   import('./liveMap/SetonLiveMapApp')
@@ -421,7 +436,7 @@ if (isSetonMapAdminPath) {
       render(<SetonLiveMapApp />);
     })
     .catch((error) => {
-      console.error('Failed to load seton live map view', error);
+      renderLoadFailure('seton live map view', error);
     });
 } else if (isAdminPath) {
   import('./admin/AdminApp')
@@ -429,7 +444,7 @@ if (isSetonMapAdminPath) {
       render(<AdminApp />);
     })
     .catch((error) => {
-      console.error('Failed to load admin view', error);
+      renderLoadFailure('admin view', error);
     });
 } else if (isDeskovkyPath || normalizedPath === DESKOVKY_ROUTE_PREFIX) {
   import('./features/deskovky/DeskovkyApp')
@@ -437,7 +452,7 @@ if (isSetonMapAdminPath) {
       render(<DeskovkyApp />);
     })
     .catch((error) => {
-      console.error('Failed to load deskovky app', error);
+      renderLoadFailure('deskovky app', error);
     });
 } else if (
   (view && forgotPasswordViews.has(view)) ||
@@ -448,7 +463,7 @@ if (isSetonMapAdminPath) {
       render(<ForgotPasswordScreen />);
     })
     .catch((error) => {
-      console.error('Failed to load forgot password view', error);
+      renderLoadFailure('forgot password view', error);
     });
 } else if (resetPasswordPathnames.has(normalizedPath)) {
   const target = `${ROUTE_PREFIX}?reset=1`;
@@ -460,7 +475,7 @@ if (isSetonMapAdminPath) {
       render(<App />);
     })
     .catch((error) => {
-      console.error('Failed to load scoring app', error);
+      renderLoadFailure('scoring app', error);
     });
 } else if ((view && scoreboardViews.has(view)) || isScoreboardPath) {
   import('./scoreboard/ScoreboardApp')
@@ -468,7 +483,7 @@ if (isSetonMapAdminPath) {
       render(<ScoreboardApp />);
     })
     .catch((error) => {
-      console.error('Failed to load scoreboard view', error);
+      renderLoadFailure('scoreboard view', error);
     });
 } else if (isHomepagePath && !isScoringNamespace) {
   import('./homepage/Homepage')
@@ -476,7 +491,7 @@ if (isSetonMapAdminPath) {
       render(<Homepage />);
     })
     .catch((error) => {
-      console.error('Failed to load homepage', error);
+      renderLoadFailure('homepage', error);
     });
 } else if (isScoringNamespace || normalizedPath === ROUTE_PREFIX) {
   import('./App')
@@ -484,7 +499,7 @@ if (isSetonMapAdminPath) {
       render(<App />);
     })
     .catch((error) => {
-      console.error('Failed to load scoring app', error);
+      renderLoadFailure('scoring app', error);
     });
 } else {
   import('./homepage/Homepage')
@@ -492,6 +507,6 @@ if (isSetonMapAdminPath) {
       render(<Homepage />);
     })
     .catch((error) => {
-      console.error('Failed to load homepage', error);
+      renderLoadFailure('homepage', error);
     });
 }

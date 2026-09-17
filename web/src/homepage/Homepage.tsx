@@ -1291,15 +1291,37 @@ function mapContentArticle(article: ContentArticle): Article {
 // Gallery cache helpers are imported from utils/galleryCache.ts
 // fetchAlbumPreview() is used by GalleryAlbumCard components
 
+// Nejčastější cíle, kam se z neexistující adresy dá odskočit. Domů je zvlášť jako hlavní tlačítko.
+const NOT_FOUND_LINKS = NAV_ITEMS.filter((item) => item.href !== '/');
+
 function NotFoundPage() {
+  const attemptedPath = typeof window === 'undefined' ? '' : window.location.pathname;
+
   return (
     <SiteShell>
-      <main className="homepage-main homepage-single">
-        <h1>Stránka nebyla nalezena</h1>
-        <p>Omlouváme se, ale požadovaná stránka neexistuje. Zkuste se vrátit na domovskou stránku.</p>
-        <a className="homepage-back-link" href="/">
-          Zpět na Zelenou ligu
-        </a>
+      <main className="homepage-main homepage-single error-page" aria-labelledby="error-heading">
+        <div className="error-card">
+          <span className="error-code" aria-hidden="true">404</span>
+          <h1 id="error-heading">Tuhle stránku jsme nenašli</h1>
+          <p className="homepage-lead">
+            Nejspíš vedla jinam nebo se v adrese ztratilo písmenko. Zkus se odrazit odsud:
+          </p>
+          {attemptedPath && attemptedPath !== '/' ? (
+            <p className="error-path">
+              Hledaná adresa: <code>{attemptedPath}</code>
+            </p>
+          ) : null}
+          <a className="homepage-cta primary" href="/">
+            Zpět na hlavní stránku
+          </a>
+          <ul className="error-links">
+            {NOT_FOUND_LINKS.map((item) => (
+              <li key={item.id}>
+                <a href={item.href}>{item.label}</a>
+              </li>
+            ))}
+          </ul>
+        </div>
       </main>
     </SiteShell>
   );
@@ -7655,15 +7677,6 @@ export default function ZelenaligaSite() {
       return <ContactsPage />;
     }
 
-    if (segments.length === 1) {
-      const readableSlug = slugify(slug).replace(/-/g, ' ');
-      return (
-        <InfoPage
-          title={readableSlug}
-          lead="Obsah stránky připravujeme. Podívej se na hlavní rozcestník."
-        />
-      );
-    }
   }
 
   return <NotFoundPage />;
