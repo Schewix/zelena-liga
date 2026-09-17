@@ -63,6 +63,13 @@ const COMPETITIONS: Competition[] = [
     ruleMatchers: ['pravidla-souteze', 'pravidla-stanovist', 'zelena-liga', 'stavba-stanu'],
   },
   {
+    slug: 'zapsem',
+    name: 'ZaPsem',
+    description: 'Šifrovací hra pro týmy – hlídky luští šifry na trase podle vlastního tempa.',
+    href: '/souteze/zapsem',
+    ruleMatchers: ['zapsem'],
+  },
+  {
     slug: 'draci-smycka',
     name: 'Dračí smyčka',
     description: 'Soutěž jednotlivců ve vázání uzlů.',
@@ -149,7 +156,7 @@ const NAV_ITEMS = [
 // Záložní seznam pro případ, že se termíny z /api/content/schedule nenačtou.
 const FALLBACK_SCHEDULE_EVENTS: ScheduleEvent[] = [
   { name: 'Sněm SPTO', start: '2026-09-08', kind: 'assembly' },
-  { name: 'ZaPsem', start: '2026-10-03', kind: 'event' },
+  { name: 'ZaPsem', start: '2026-10-03', kind: 'event', href: '/souteze/zapsem' },
   { name: 'Štáb SPTO', start: '2026-10-13', kind: 'staff' },
   { name: 'Štáb SPTO', start: '2026-11-10', kind: 'staff' },
   { name: 'Štáb SPTO', start: '2026-12-08', kind: 'staff' },
