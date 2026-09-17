@@ -1,4 +1,12 @@
-export type SptoDocumentKind = 'sbornicek' | 'propozice' | 'zapis-snem' | 'zapis-stab' | 'prihlaska' | 'ostatni';
+export type SptoDocumentKind =
+  | 'sbornicek'
+  | 'propozice'
+  | 'pozvanka'
+  | 'pravidla'
+  | 'zapis-snem'
+  | 'zapis-stab'
+  | 'prihlaska'
+  | 'ostatni';
 
 export type SptoDocument = {
   id: string;
@@ -14,12 +22,15 @@ export type SptoDocument = {
   coverUrl: string | null;
   orderIndex: number;
   scheduleEventId: string | null;
+  competitionSlug: string | null;
   restricted: boolean;
 };
 
 const DOCUMENT_KINDS: SptoDocumentKind[] = [
   'sbornicek',
   'propozice',
+  'pozvanka',
+  'pravidla',
   'zapis-snem',
   'zapis-stab',
   'prihlaska',
@@ -58,6 +69,7 @@ function normalizeDocument(raw: unknown): SptoDocument | null {
     coverUrl: readString(value.coverUrl),
     orderIndex: readNumber(value.orderIndex) ?? 0,
     scheduleEventId: readString(value.scheduleEventId),
+    competitionSlug: readString(value.competitionSlug),
     restricted: value.restricted === true,
   };
 }

@@ -24,6 +24,7 @@ function makeDocument(overrides: Partial<SptoDocument> = {}): SptoDocument {
     coverUrl: null,
     orderIndex: 0,
     scheduleEventId: null,
+    competitionSlug: null,
     restricted: false,
     ...overrides,
   };
@@ -84,6 +85,26 @@ describe('fetchDocuments', () => {
     expect(documents).toHaveLength(1);
     expect(documents[0]?.scheduleEventId).toBe('event-1');
     expect(documents[0]?.kind).toBe('propozice');
+  });
+
+  it('keeps the new kinds and the competition binding', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        jsonResponse({
+          documents: [
+            { id: 'doc-1', title: 'Pravidla lakrosu', kind: 'pravidla', competitionSlug: 'lakros' },
+            { id: 'doc-2', title: 'Pozvánka na štáb', kind: 'pozvanka' },
+          ],
+        }),
+      ),
+    );
+
+    const documents = await fetchDocuments();
+
+    expect(documents.map((document) => document.kind)).toEqual(['pravidla', 'pozvanka']);
+    expect(documents[0]?.competitionSlug).toBe('lakros');
+    expect(documents[1]?.competitionSlug).toBeNull();
   });
 
   it('drops rows without an id or a title and defaults an unknown kind', async () => {

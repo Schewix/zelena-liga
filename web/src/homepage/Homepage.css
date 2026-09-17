@@ -716,6 +716,14 @@
   margin-top: 6px;
 }
 
+/* Popis dokumentu na stránce soutěže chodí z redakce jako prostý text i se zalomeními. */
+.homepage-doc-text {
+  margin: 0 0 12px;
+  white-space: pre-line;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
 .schedule-doc-note {
   font-size: 0.85rem;
   color: var(--text-muted);

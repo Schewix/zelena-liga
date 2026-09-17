@@ -169,6 +169,8 @@ const SCHEDULE_KIND_LABELS: Record<ScheduleEventKind, string> = {
 const DOCUMENT_KIND_LABELS: Record<SptoDocumentKind, string> = {
   sbornicek: 'Sborníček',
   propozice: 'Propozice',
+  pozvanka: 'Pozvánka s programem',
+  pravidla: 'Pravidla',
   'zapis-snem': 'Zápis ze sněmu',
   'zapis-stab': 'Zápis ze štábu',
   prihlaska: 'Přihláška',
@@ -177,6 +179,8 @@ const DOCUMENT_KIND_LABELS: Record<SptoDocumentKind, string> = {
 
 const DOCUMENT_KIND_ORDER: SptoDocumentKind[] = [
   'propozice',
+  'pravidla',
+  'pozvanka',
   'prihlaska',
   'zapis-snem',
   'zapis-stab',
@@ -1648,6 +1652,42 @@ function ScheduleDocumentLinks({ documents }: { documents: SptoDocument[] }) {
   );
 }
 
+// Do bucketu se vejdou i obrázky, takže prohlížeč PDF nasazujeme jen tam, kde to opravdu PDF je.
+function isPdfDocument(document: SptoDocument) {
+  const source = document.fileName ?? document.fileUrl ?? '';
+  return /\.pdf(\?|#|$)/i.test(source);
+}
+
+// Dokument navázaný na soutěž – na stránce soutěže vypadá stejně jako přibalená pravidla.
+function CompetitionDocumentCard({ document }: { document: SptoDocument }) {
+  const link = documentLink(document);
+  const paragraphs = documentParagraphs(document);
+  const label =
+    document.kind === 'pravidla' || document.kind === 'ostatni'
+      ? document.title
+      : `${DOCUMENT_KIND_LABELS[document.kind]}: ${document.title}`;
+
+  return (
+    <div className="homepage-card">
+      <h2>{label}</h2>
+      {paragraphs.map((paragraph, index) => (
+        <p className="homepage-doc-text" key={index}>
+          {paragraph}
+        </p>
+      ))}
+      {link === null ? (
+        <p className="homepage-doc-text">Dokument je jen pro vedoucí.</p>
+      ) : document.fileUrl && isPdfDocument(document) ? (
+        <PdfEmbedCard title={label} url={link} />
+      ) : (
+        <a className="homepage-cta secondary" href={link} target="_blank" rel="noreferrer">
+          Otevřít dokument
+        </a>
+      )}
+    </div>
+  );
+}
+
 // Dokumenty se k termínu váží přes id, které má jen záznam z databáze.
 function groupDocumentsByEvent(documents: SptoDocument[]) {
   const grouped = new Map<string, SptoDocument[]>();
@@ -1999,6 +2039,7 @@ type EditorDocument = {
   visibility: 'public' | 'internal';
   published: boolean;
   schedule_event_id?: string | null;
+  competition_slug?: string | null;
   created_at?: string | null;
 };
 
@@ -2017,6 +2058,7 @@ type EditorDocumentFormState = {
   visibility: 'public' | 'internal';
   published: boolean;
   schedule_event_id: string;
+  competition_slug: string;
 };
 
 const EMPTY_DOCUMENT_FORM: EditorDocumentFormState = {
@@ -2034,6 +2076,7 @@ const EMPTY_DOCUMENT_FORM: EditorDocumentFormState = {
   visibility: 'public',
   published: true,
   schedule_event_id: '',
+  competition_slug: '',
 };
 
 type EditorScheduleEvent = {
@@ -2858,6 +2901,7 @@ function RedakcePage() {
       visibility: doc.visibility,
       published: doc.published,
       schedule_event_id: doc.schedule_event_id ?? '',
+      competition_slug: doc.competition_slug ?? '',
     });
   };
 
@@ -2969,6 +3013,7 @@ function RedakcePage() {
       visibility: documentForm.visibility,
       published: documentForm.published,
       schedule_event_id: documentForm.schedule_event_id,
+      competition_slug: documentForm.competition_slug,
     };
 
     setDocumentSaving(true);
@@ -3629,8 +3674,9 @@ function RedakcePage() {
                 <div>
                   <h2>Dokumenty</h2>
                   <p>
-                    Propozice a zápisy se zobrazí v Plánu akcí u akce, kterou dokumentu přiřadíš. Sborníčky se řadí
-                    podle roku na stránku O SPTO.
+                    Propozice, pozvánky a zápisy se zobrazí v Plánu akcí u akce, kterou dokumentu přiřadíš.
+                    Pravidla přiřazená k soutěži se ukážou na její stránce. Sborníčky se řadí podle roku na
+                    stránku O SPTO.
                   </p>
                 </div>
                 <div className="editor-documents-actions">
@@ -3680,6 +3726,9 @@ function RedakcePage() {
                               {DOCUMENT_KIND_LABELS[doc.kind]}
                               {doc.schedule_event_id
                                 ? ` · ${scheduleEvents.find((event) => event.id === doc.schedule_event_id)?.name ?? 'akce'}`
+                                : ''}
+                              {doc.competition_slug
+                                ? ` · ${COMPETITIONS.find((competition) => competition.slug === doc.competition_slug)?.name ?? 'soutěž'}`
                                 : ''}
                               {doc.event_date ? ` · ${formatDocumentDate(doc.event_date)}` : ''}
                               {doc.year ? ` · ${doc.year}` : ''}
@@ -3740,23 +3789,42 @@ function RedakcePage() {
                   </div>
 
                   {documentForm.kind === 'sbornicek' ? null : (
-                    <label>
-                      Akce v plánu (nepovinné)
-                      <select
-                        value={documentForm.schedule_event_id}
-                        onChange={(event) => updateDocumentField('schedule_event_id', event.target.value)}
-                      >
-                        <option value="">Bez navázání na akci</option>
-                        {scheduleEvents.map((event) => (
-                          <option key={event.id} value={event.id}>
-                            {event.name} · {formatDocumentDate(event.start_date)}
-                          </option>
-                        ))}
-                      </select>
-                      <small className="editor-field-hint">
-                        Navázaný dokument se ukáže přímo u termínu v Plánu akcí.
-                      </small>
-                    </label>
+                    <div className="editor-form-grid">
+                      <label>
+                        Akce v plánu (nepovinné)
+                        <select
+                          value={documentForm.schedule_event_id}
+                          onChange={(event) => updateDocumentField('schedule_event_id', event.target.value)}
+                        >
+                          <option value="">Bez navázání na akci</option>
+                          {scheduleEvents.map((event) => (
+                            <option key={event.id} value={event.id}>
+                              {event.name} · {formatDocumentDate(event.start_date)}
+                            </option>
+                          ))}
+                        </select>
+                        <small className="editor-field-hint">
+                          Navázaný dokument se ukáže přímo u termínu v Plánu akcí.
+                        </small>
+                      </label>
+                      <label>
+                        Soutěž (nepovinné)
+                        <select
+                          value={documentForm.competition_slug}
+                          onChange={(event) => updateDocumentField('competition_slug', event.target.value)}
+                        >
+                          <option value="">Bez navázání na soutěž</option>
+                          {COMPETITIONS.map((competition) => (
+                            <option key={competition.slug} value={competition.slug}>
+                              {competition.name}
+                            </option>
+                          ))}
+                        </select>
+                        <small className="editor-field-hint">
+                          Pravidla a další dokumenty se ukážou na stránce soutěže.
+                        </small>
+                      </label>
+                    </div>
                   )}
 
                   <div
@@ -7193,6 +7261,25 @@ interface CompetitionRulesPageProps {
 
 function CompetitionRulesPage({ slug }: CompetitionRulesPageProps) {
   const competition = COMPETITIONS.find((item) => item.slug === slug);
+  // Pravidla nahraná z redakce jsou aktuálnější než PDF přibalená v repu, proto jdou na stránce první.
+  const [uploaded, setUploaded] = useState<SptoDocument[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    fetchDocuments().then((documents) => {
+      if (!active) {
+        return;
+      }
+      setUploaded(
+        documents
+          .filter((document) => document.competitionSlug === slug)
+          .sort((a, b) => a.orderIndex - b.orderIndex || a.title.localeCompare(b.title, 'cs')),
+      );
+    });
+    return () => {
+      active = false;
+    };
+  }, [slug]);
 
   if (!competition) {
     return <NotFoundPage />;
@@ -7205,8 +7292,11 @@ function CompetitionRulesPage({ slug }: CompetitionRulesPageProps) {
       <main className="homepage-main homepage-single" aria-labelledby="rules-heading">
         <h1 id="rules-heading">{competition.name}</h1>
         <p className="homepage-lead">{competition.description ?? 'Pravidla a dokumenty k soutěži.'}</p>
-        {rules.length > 0 ? (
+        {uploaded.length > 0 || rules.length > 0 ? (
           <div className="homepage-pdf-stack">
+            {uploaded.map((document) => (
+              <CompetitionDocumentCard document={document} key={document.id} />
+            ))}
             {rules.map((rule) => {
               const label = formatRuleLabel(rule.filename);
               return (

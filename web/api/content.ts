@@ -169,6 +169,7 @@ type DocumentRow = {
   published: boolean;
   order_index: number;
   schedule_event_id?: string | null;
+  competition_slug?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
 };
@@ -226,6 +227,8 @@ const CONTENT_DOCUMENT_MAX_SIZE = 50 * 1024 * 1024;
 const CONTENT_DOCUMENT_KINDS = new Set([
   'sbornicek',
   'propozice',
+  'pozvanka',
+  'pravidla',
   'zapis-snem',
   'zapis-stab',
   'prihlaska',
@@ -1610,6 +1613,7 @@ function parseDocumentPayload(payload: Record<string, unknown>, partial: boolean
 
   readText('description');
   readText('event_date');
+  readText('competition_slug');
   readText('file_url');
   readText('file_path');
   readText('file_name');
@@ -1636,6 +1640,7 @@ function toPublicDocument(row: DocumentRow) {
     coverUrl: row.cover_url,
     orderIndex: row.order_index,
     scheduleEventId: row.schedule_event_id ?? null,
+    competitionSlug: row.competition_slug ?? null,
     restricted,
   };
 }
