@@ -111,6 +111,11 @@ export function documentLink(document: SptoDocument): string | null {
   return document.fileUrl ?? document.links[0]?.url ?? document.externalUrl;
 }
 
+// U dokumentu bez souboru se první odkaz spotřebuje jako cíl dlaždice, zbytek se ukazuje zvlášť.
+export function documentExtraLinks(document: SptoDocument): SptoDocumentLink[] {
+  return document.links.slice(document.fileUrl ? 0 : 1);
+}
+
 export type TextSegment = { kind: 'text'; value: string } | { kind: 'link'; value: string; url: string };
 
 // Koncová interpunkce a uzavírací závorka bývá součástí věty, ne adresy.

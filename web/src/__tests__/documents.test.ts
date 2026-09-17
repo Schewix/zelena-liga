@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  documentExtraLinks,
   documentLink,
   fetchDocuments,
   sortDocumentsByYearDesc,
@@ -68,6 +69,25 @@ describe('documentLink', () => {
     });
     expect(documentLink(document)).toBe('https://pionyr.cz/prihlasovna');
     expect(documentLink({ ...document, fileUrl: '/propozice.pdf' })).toBe('/propozice.pdf');
+  });
+});
+
+describe('documentExtraLinks', () => {
+  const links = [
+    { label: 'Přihlašovna', url: 'https://pionyr.cz/prihlasovna' },
+    { label: 'Autobus', url: 'https://docs.google.com/spreadsheets/d/abc' },
+  ];
+
+  it('drops the first link when it is already the tile target', () => {
+    expect(documentExtraLinks(makeDocument({ links }))).toEqual([links[1]]);
+  });
+
+  it('keeps every link when the tile points at an uploaded file', () => {
+    expect(documentExtraLinks(makeDocument({ links, fileUrl: '/propozice.pdf' }))).toEqual(links);
+  });
+
+  it('has nothing to show for an internal document, because the API strips its links', () => {
+    expect(documentExtraLinks(makeDocument({ restricted: true }))).toEqual([]);
   });
 });
 

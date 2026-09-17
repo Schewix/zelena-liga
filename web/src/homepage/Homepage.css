@@ -780,6 +780,12 @@ a.schedule-doc-link:focus-visible {
   font-weight: 500;
 }
 
+/* Pojmenovaný odkaz z redakce stojí vedle propozic, ale přerušovaný rám napoví, že nevede na dokument. */
+.schedule-doc-link--extra {
+  border-style: dashed;
+  font-weight: 500;
+}
+
 .schedule-list-next {
   padding: 4px 10px;
   border-radius: 999px;

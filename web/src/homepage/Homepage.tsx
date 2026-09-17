@@ -16,6 +16,7 @@ import AppFooter from '../components/AppFooter';
 import logo from '../assets/znak_SPTO_transparent.png';
 import { fetchContentArticle, fetchContentArticles, type ContentArticle } from '../data/content';
 import {
+  documentExtraLinks,
   documentLink,
   fetchDocuments,
   sortDocumentsByYearDesc,
@@ -1633,8 +1634,8 @@ function DocumentLinkList({ links }: { links: SptoDocumentLink[] }) {
   }
   return (
     <ul className="document-link-list">
-      {links.map((link) => (
-        <li key={link.url}>
+      {links.map((link, index) => (
+        <li key={index}>
           <a href={link.url} target="_blank" rel="noreferrer">
             {link.label}
           </a>
@@ -1647,9 +1648,8 @@ function DocumentLinkList({ links }: { links: SptoDocumentLink[] }) {
 // Doplňující informace bývají celý zvací e-mail, takže je schováme pod rozklikávátko a seznam termínů zůstane přehledný.
 function ScheduleDocumentNote({ document }: { document: SptoDocument }) {
   const paragraphs = documentParagraphs(document);
-  // Odkazy stojí za rozkliknutí i u dokumentu bez popisu, proto se na text neváží.
-  const extraLinks = document.links.slice(document.fileUrl ? 0 : 1);
-  if (paragraphs.length === 0 && extraLinks.length === 0) {
+  // Odkazy se ukazují nahoře mezi dlaždicemi, tady zůstává jen doprovodný text.
+  if (paragraphs.length === 0) {
     return null;
   }
   const label = DOCUMENT_KIND_LABELS[document.kind];
@@ -1659,7 +1659,6 @@ function ScheduleDocumentNote({ document }: { document: SptoDocument }) {
       {paragraphs.map((paragraph, index) => (
         <DocumentParagraph text={paragraph} key={index} />
       ))}
-      <DocumentLinkList links={extraLinks} />
     </details>
   );
 }
@@ -1675,14 +1674,28 @@ function ScheduleDocumentLinks({ documents }: { documents: SptoDocument[] }) {
         {documents.map((document) => {
           const link = documentLink(document);
           const label = `${DOCUMENT_KIND_LABELS[document.kind]}${document.kind === 'ostatni' ? `: ${document.title}` : ''}`;
-          return link ? (
-            <a className="schedule-doc-link" href={link} target="_blank" rel="noreferrer" key={document.id}>
-              {label}
-            </a>
-          ) : (
-            <span className="schedule-doc-link schedule-doc-link--locked" key={document.id}>
-              {label} · jen pro vedoucí
-            </span>
+          return (
+            <Fragment key={document.id}>
+              {link ? (
+                <a className="schedule-doc-link" href={link} target="_blank" rel="noreferrer">
+                  {label}
+                </a>
+              ) : (
+                <span className="schedule-doc-link schedule-doc-link--locked">{label} · jen pro vedoucí</span>
+              )}
+              {/* Přihlašovna nebo tabulka na odjezd patří k termínu stejně jako propozice, ne pod rozklikávátko. */}
+              {documentExtraLinks(document).map((extra, index) => (
+                <a
+                  className="schedule-doc-link schedule-doc-link--extra"
+                  href={extra.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  key={index}
+                >
+                  {extra.label}
+                </a>
+              ))}
+            </Fragment>
           );
         })}
       </span>
@@ -1714,7 +1727,7 @@ function CompetitionDocumentCard({ document }: { document: SptoDocument }) {
       {paragraphs.map((paragraph, index) => (
         <DocumentParagraph className="homepage-doc-text" text={paragraph} key={index} />
       ))}
-      <DocumentLinkList links={document.links.slice(document.fileUrl ? 0 : 1)} />
+      <DocumentLinkList links={documentExtraLinks(document)} />
       {link === null ? (
         <p className="homepage-doc-text">Dokument je jen pro vedoucí.</p>
       ) : document.fileUrl && isPdfDocument(document) ? (
