@@ -1595,27 +1595,56 @@ function SbornicekGrid({ documents }: { documents: SptoDocument[] }) {
   );
 }
 
-// Dokumenty navázané na termín – u akce v Plánu akcí stačí drobné odkazy.
+function documentParagraphs(document: SptoDocument) {
+  return (document.description ?? '')
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
+}
+
+// Doplňující informace bývají celý zvací e-mail, takže je schováme pod rozklikávátko a seznam termínů zůstane přehledný.
+function ScheduleDocumentNote({ document }: { document: SptoDocument }) {
+  const paragraphs = documentParagraphs(document);
+  if (paragraphs.length === 0) {
+    return null;
+  }
+  const label = DOCUMENT_KIND_LABELS[document.kind];
+  return (
+    <details className="schedule-doc-note">
+      <summary>{document.kind === 'ostatni' ? document.title : `${label} – podrobnosti`}</summary>
+      {paragraphs.map((paragraph, index) => (
+        <p key={index}>{paragraph}</p>
+      ))}
+    </details>
+  );
+}
+
+// Dokumenty navázané na termín – u akce v Plánu akcí stačí drobné odkazy a k nim rozbalovací text.
 function ScheduleDocumentLinks({ documents }: { documents: SptoDocument[] }) {
   if (documents.length === 0) {
     return null;
   }
   return (
-    <span className="schedule-doc-links">
-      {documents.map((document) => {
-        const link = documentLink(document);
-        const label = `${DOCUMENT_KIND_LABELS[document.kind]}${document.kind === 'ostatni' ? `: ${document.title}` : ''}`;
-        return link ? (
-          <a className="schedule-doc-link" href={link} target="_blank" rel="noreferrer" key={document.id}>
-            {label}
-          </a>
-        ) : (
-          <span className="schedule-doc-link schedule-doc-link--locked" key={document.id}>
-            {label} · jen pro vedoucí
-          </span>
-        );
-      })}
-    </span>
+    <div className="schedule-docs">
+      <span className="schedule-doc-links">
+        {documents.map((document) => {
+          const link = documentLink(document);
+          const label = `${DOCUMENT_KIND_LABELS[document.kind]}${document.kind === 'ostatni' ? `: ${document.title}` : ''}`;
+          return link ? (
+            <a className="schedule-doc-link" href={link} target="_blank" rel="noreferrer" key={document.id}>
+              {label}
+            </a>
+          ) : (
+            <span className="schedule-doc-link schedule-doc-link--locked" key={document.id}>
+              {label} · jen pro vedoucí
+            </span>
+          );
+        })}
+      </span>
+      {documents.map((document) => (
+        <ScheduleDocumentNote document={document} key={document.id} />
+      ))}
+    </div>
   );
 }
 

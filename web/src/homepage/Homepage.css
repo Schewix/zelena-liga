@@ -702,11 +702,36 @@
 .schedule-list-copy strong { font-size: 1.02rem; }
 .schedule-list-copy small { color: var(--text-muted); }
 
+.schedule-docs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
 .schedule-doc-links {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
   margin-top: 6px;
+}
+
+.schedule-doc-note {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.schedule-doc-note summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: #04372c;
+}
+
+/* Text z redakce chodí s prostými zalomeními, ať zůstanou i na webu. */
+.schedule-doc-note p {
+  margin: 8px 0 0;
+  white-space: pre-line;
+  line-height: 1.5;
 }
 
 .schedule-doc-link {
