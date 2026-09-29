@@ -40,7 +40,6 @@ export type LeagueJob = {
 export type Selection = { points: number; troop: string };
 // Legacy exports used one shared sheet; the importer still accepts that layout.
 export const PROPOSAL_SHEET = 'Návrhy pásem';
-const INSTRUCTIONS_SHEET = 'Jak vybrat pásma';
 export const CHOICE_HEADER = 'Vybrané body ZL';
 const LEGACY_HEADERS = [
   'ID výsledku',
@@ -372,25 +371,6 @@ function styleSheet(sheet: ExcelJS.Worksheet) {
 }
 export function proposalWorkbook(job: LeagueJob): ExcelJS.Workbook {
   const workbook = new ExcelJS.Workbook();
-  const instructions = workbook.addWorksheet(INSTRUCTIONS_SHEET);
-  [
-    'Návrhy bodů Zelené ligy',
-    'Každá skupina má vlastní list. Na všech listech zkopíruj zvolenou variantu do sloupce Vybrané body ZL. Výchozí jsou body bez cut-off.',
-    'Bez sloupce Kategorie se použije název původního listu: H8 a D8 jsou samostatné skupiny, stejně jako H+, D+ a další názvy.',
-    'Můžeš zvolit jinou variantu pro každou skupinu nebo jednotlivé řádky upravit ručně.',
-    'Povolené body: 0, 1, 2, 4, 6, 9, 12, 16. DSQ/DNS musí mít 0, DNF 1.',
-    'Neměň ID výsledku ani záhlaví. Řádky můžeš přerovnat, ale žádný nesmí chybět ani se opakovat.',
-    'Návrh neobsahuje jména soutěžících, názvy hlídek ani oddíly. Body se při importu přiřadí přes anonymní ID k původním výsledkům.',
-    `Součet oddílu = ${job.settings.maxResults || 'všechny'} nejlepší příspěvky × ${job.settings.coefficient} + ${job.settings.participation} bodů za účast. DSQ/DNS nepřispívají ani k účasti.`,
-    'Červená horní čára označuje začátek výsledků pod cut-off (dostávají 1 bod). Shodné výsledky se nerozdělují.',
-    'Cut-off hledá výrazné mezery ve druhé polovině výsledků. Gauss vybírá mez podle rozložení do sedmi pásem.',
-    'Zpětný import prováděj ve stejné rozpracované úloze. Po obnovení stránky nahraj původní soubor a nastav stejné parametry.',
-  ].forEach((line) => instructions.addRow([line]));
-  instructions.getColumn(1).width = 110;
-  instructions.eachRow((row) => {
-    row.alignment = { wrapText: true };
-    row.height = 36;
-  });
   // Keep source category order, but sort competitors by performance within each category.
   const groups = new Map<string, Participant[]>();
   for (const participant of job.participants) {

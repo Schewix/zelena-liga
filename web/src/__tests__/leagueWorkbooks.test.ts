@@ -292,7 +292,7 @@ describe('categories from worksheet names', () => {
     expect(describeLeagueGroup('D+')).toBe('D+ – dívky, věková kategorie +');
     expect(describeLeagueGroup('S')).toBe('S');
     const proposal = proposalWorkbook(job);
-    expect(proposal.worksheets.map((sheet) => sheet.name)).toEqual(['Jak vybrat pásma', ...names]);
+    expect(proposal.worksheets.map((sheet) => sheet.name)).toEqual(names);
     for (const name of names) {
       const sheet = proposal.getWorksheet(name)!;
       expect(sheet.rowCount).toBe(5);
@@ -371,16 +371,16 @@ describe('categories from worksheet names', () => {
     const labels = [
       'Kategorie / velmi dlouhý název pro test A',
       'Kategorie : velmi dlouhý název pro test B',
-      'Jak vybrat pásma',
-      'jak vybrat pásma',
+      'Kategorie A',
+      'kategorie a',
     ];
     const renamed: LeagueJob = {
       ...job,
       participants: job.participants.slice(0, 4).map((row, index) => ({ ...row, group: labels[index] })),
     };
     const proposal = proposalWorkbook(renamed);
-    expect(proposal.worksheets).toHaveLength(5);
-    expect(new Set(proposal.worksheets.map((sheet) => sheet.name.toLowerCase())).size).toBe(5);
+    expect(proposal.worksheets).toHaveLength(4);
+    expect(new Set(proposal.worksheets.map((sheet) => sheet.name.toLowerCase())).size).toBe(4);
     expect(proposal.worksheets.every((sheet) => sheet.name.length <= 31)).toBe(true);
     expect((await readSelections(renamed, await bytes(proposal))).size).toBe(4);
   });
