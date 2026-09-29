@@ -25,6 +25,19 @@ type OnboardingEvent = {
   metadata: Record<string, unknown> | null;
 };
 
+const MAX_DELIVERY_ATTEMPTS = 5;
+
+class ResendDeliveryError extends Error {
+  constructor(readonly status: number, readonly code: string, message: string) {
+    super(message);
+  }
+
+  get retryable(): boolean {
+    return this.status >= 500 || this.status === 408 || this.status === 429
+      || (this.status === 409 && this.code !== "invalid_idempotent_request");
+  }
+}
+
 function generatePassword(length = 10): string {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789"; // bez podobných znaků
   let out = "";
@@ -65,7 +78,16 @@ async function hashPassword(password: string): Promise<string> {
   return encoded;
 }
 
+function isValidRecipient(email: string): boolean {
+  // Judge records contain a bare address. Catch obvious input mistakes locally;
+  // the provider still performs its complete address validation.
+  return /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(email);
+}
+
 async function sendEmail(to: string, password: string, displayName?: string): Promise<string> {
+  if (!isValidRecipient(to)) {
+    throw new ResendDeliveryError(422, "invalid_recipient", "Recipient must be a single email address in email@example.com format.");
+  }
   const from = TRANSACTIONAL_FROM;
   const replyTo = TRANSACTIONAL_REPLY_TO;
   const subject = "Dočasné heslo do aplikace Zelená liga";
@@ -165,33 +187,37 @@ async function sendEmail(to: string, password: string, displayName?: string): Pr
   const FETCH_TIMEOUT_MS = 1500; // keep requests snappy in cron
   const fetchTimer = setTimeout(() => ac.abort(), FETCH_TIMEOUT_MS);
 
-  const resp = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${RESEND_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from,
-      to: [to],
-      subject,
-      html,
-      text,
-      reply_to: replyTo,
-    }),
-    signal: ac.signal,
-  });
+  try {
+    const resp = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${RESEND_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from,
+        to: [to],
+        subject,
+        html,
+        text,
+        reply_to: replyTo,
+      }),
+      signal: ac.signal,
+    });
 
-  clearTimeout(fetchTimer);
+    if (!resp.ok) {
+      const body = await resp.json().catch(() => null);
+      const code = typeof body?.name === "string" ? body.name : "unknown_error";
+      const message = typeof body?.message === "string" ? body.message : "No error details returned";
+      throw new ResendDeliveryError(resp.status, code, message);
+    }
 
-  if (!resp.ok) {
-    const bodyTxt = await resp.text().catch(() => "");
-    throw new Error(`Resend error status=${resp.status} body=${bodyTxt || "<no body>"} aborted=${ac.signal.aborted}`);
+    const body = await resp.json().catch(() => ({} as Record<string, unknown>));
+    const messageId = typeof body?.id === "string" ? body.id : "";
+    return messageId;
+  } finally {
+    clearTimeout(fetchTimer);
   }
-
-  const body = await resp.json().catch(() => ({} as Record<string, unknown>));
-  const messageId = typeof body?.id === "string" ? body.id : "";
-  return messageId;
 }
 
 Deno.serve(async (req) => {
@@ -245,6 +271,8 @@ Deno.serve(async (req) => {
     missing_email: 0,
     missing_password: 0,
     forced_password_resets: 0,
+    delivery_blocked: 0,
+    retry_deferred: 0,
   };
 
   const candidates: (OnboardingEvent & { resolvedEmail: string; resolvedPassword: string; resolvedType: string; displayName?: string })[] = [];
@@ -252,6 +280,14 @@ Deno.serve(async (req) => {
     const m = (row.metadata ?? {}) as Record<string, unknown>;
     if (m["type"] !== "initial-password-issued") { skipped.not_initial_type++; continue; }
     if (m["sent"] === true) { skipped.already_sent++; continue; }
+    if (m["delivery_status"] === "failed" || Number(m["delivery_attempts"] ?? 0) >= MAX_DELIVERY_ATTEMPTS) {
+      skipped.delivery_blocked++;
+      continue;
+    }
+    if (typeof m["next_retry_at"] === "string" && Date.parse(m["next_retry_at"]) > Date.now()) {
+      skipped.retry_deferred++;
+      continue;
+    }
 
     // resolve email and display_name from judges table
     let email = typeof m["email"] === "string" ? String(m["email"]) : "";
@@ -266,12 +302,13 @@ Deno.serve(async (req) => {
       if (jrow?.email && typeof jrow.email === "string") email = jrow.email;
       if (jrow?.display_name && typeof jrow.display_name === "string") displayName = jrow.display_name;
     }
+    email = email.trim();
     if (!email) { skipped.missing_email++; continue; }
 
     // resolve password or force-reset
     let password = typeof m["password"] === "string" ? String(m["password"]) : "";
     let resolvedType = "initial-password-issued";
-    if (!password) {
+    if (!password && isValidRecipient(email)) {
       if (!forceReset || !row.judge_id) { skipped.missing_password++; continue; }
       // create a new temporary password and rotate it on the judge record
       const newPass = generatePassword(12);
@@ -313,6 +350,8 @@ Deno.serve(async (req) => {
       missing_email: number;
       missing_password: number;
       forced_password_resets: number;
+      delivery_blocked: number;
+      retry_deferred: number;
     };
   };
 
@@ -337,10 +376,14 @@ Deno.serve(async (req) => {
     const email = (ev as any).resolvedEmail as string;
     const password = (ev as any).resolvedPassword as string;
     const displayName = (ev as any).displayName as string | undefined;
+    const previousAttempts = Number(md["delivery_attempts"] ?? 0);
+    const attempts = (Number.isSafeInteger(previousAttempts) && previousAttempts >= 0 ? previousAttempts : 0) + 1;
+    let acceptedMessageId: string | null = null;
 
     try {
       if (!dryRun) {
         const messageId = await sendEmail(email, password, displayName);
+        acceptedMessageId = messageId;
 
         // označíme jako odeslané (metadata.sent=true, metadata.sent_at=now)
         const { password: _pw, ...restMd } = md as Record<string, unknown>;
@@ -352,6 +395,10 @@ Deno.serve(async (req) => {
           sent_at: new Date().toISOString(),
           provider: "resend",
           message_id: messageId,
+          delivery_status: "sent",
+          delivery_attempts: attempts,
+          next_retry_at: null,
+          last_delivery_error: null,
         };
         const { error: updErr } = await supabase
           .from("judge_onboarding_events")
@@ -367,8 +414,47 @@ Deno.serve(async (req) => {
       }
     } catch (e) {
       summary.failed += 1;
-      summary.errors.push(`id=${ev.id} email=${email}: ${e instanceof Error ? e.message : String(e)}`);
-      // Poznámka: necháváme neodeslané pro další pokus v příštím běhu
+      const providerError = e instanceof ResendDeliveryError ? e : null;
+      const retryable = acceptedMessageId === null && (!providerError || providerError.retryable);
+      const blocked = !retryable || attempts >= MAX_DELIVERY_ATTEMPTS;
+      // Provider errors can echo request fields; never persist a temporary password or API key in diagnostics.
+      let errorMessage = e instanceof Error ? e.message : String(e);
+      for (const secret of [password, RESEND_API_KEY]) {
+        if (secret) errorMessage = errorMessage.replaceAll(secret, "[redacted]");
+      }
+      errorMessage = errorMessage.slice(0, 1000);
+      const failure = {
+        status: providerError?.status ?? null,
+        code: providerError?.code ?? (acceptedMessageId !== null ? "delivery_receipt_update_failed" : "delivery_error"),
+        message: errorMessage,
+        failed_at: new Date().toISOString(),
+      };
+      summary.errors.push(`id=${ev.id} status=${failure.status} code=${failure.code}: ${errorMessage}`);
+      console.error("Onboarding email delivery failed", { event_id: ev.id, ...failure });
+      if (!dryRun) {
+        const { password: _pw, ...restMd } = md;
+        const { error: saveError } = await supabase
+          .from("judge_onboarding_events")
+          .update({ metadata: {
+            ...restMd,
+            // Retain the actual password for retries, including one generated by force-reset.
+            ...(acceptedMessageId === null ? { password } : { sent: true, message_id: acceptedMessageId }),
+            email,
+            delivery_status: blocked ? "failed" : "retry",
+            delivery_attempts: attempts,
+            next_retry_at: blocked ? null : new Date(Date.now() + 5 * 60_000 * 2 ** (attempts - 1)).toISOString(),
+            last_delivery_error: failure,
+          } })
+          .eq("id", ev.id);
+        if (saveError) {
+          summary.errors.push(`id=${ev.id}: Failed to persist delivery failure`);
+          console.error("Failed to persist onboarding delivery failure", { event_id: ev.id, code: saveError.code });
+          return new Response(JSON.stringify(summary), {
+            status: 500,
+            headers: { "content-type": "application/json" },
+          });
+        }
+      }
     }
   }
 
