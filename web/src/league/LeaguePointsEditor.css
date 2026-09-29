@@ -1,0 +1,140 @@
+.league-editor {
+  display: grid;
+  gap: 24px;
+}
+.league-editor h2 {
+  margin-top: 0;
+}
+.league-editor p {
+  line-height: 1.6;
+}
+.league-step {
+  min-width: 0;
+  margin: 0;
+  padding: 22px;
+  border: 1px solid #c9d9cf;
+  border-radius: 16px;
+  background: #fff;
+}
+.league-step legend {
+  padding: 0 8px;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #04372c;
+}
+.league-editor label {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  font-weight: 600;
+}
+.league-editor input,
+.league-editor select {
+  box-sizing: border-box;
+  min-width: 0;
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #c9d9cf;
+  border-radius: 8px;
+  background: #fff;
+  font: inherit;
+  color: #213c32;
+}
+.league-editor input:disabled,
+.league-editor select:disabled {
+  background: #edf2ef;
+}
+.league-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 16px;
+  margin: 18px 0;
+}
+.league-mapping {
+  margin: 16px 0;
+  padding: 14px;
+  border: 1px solid #d8e4dd;
+  border-radius: 10px;
+}
+.league-mapping summary {
+  cursor: pointer;
+  font-weight: 700;
+  padding: 4px 0 12px;
+}
+.league-mapping fieldset {
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+.league-editor .league-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.league-editor .league-check input {
+  width: auto;
+}
+.league-table-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+  margin: 16px 0;
+}
+.league-editor table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.9rem;
+}
+.league-editor th,
+.league-editor td {
+  padding: 10px;
+  border-bottom: 1px solid #d8e4dd;
+  vertical-align: top;
+}
+.league-editor thead {
+  background: #edf4ef;
+}
+.league-editor caption {
+  text-align: left;
+  font-weight: 600;
+  padding-bottom: 10px;
+}
+.league-note {
+  background: #eef5f0;
+  border-radius: 10px;
+  padding: 12px 16px;
+}
+.league-button {
+  border: 0;
+  border-radius: 24px;
+  padding: 12px 20px;
+  background: #04372c;
+  color: white;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.league-button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+.league-button:focus-visible {
+  outline: 3px solid #e5bd32;
+  outline-offset: 3px;
+}
+.league-error {
+  border: 1px solid #a52525;
+  color: #842020;
+  background: #fff2f2;
+  padding: 14px;
+  border-radius: 10px;
+}
+@media (max-width: 600px) {
+  .league-step {
+    padding: 14px;
+  }
+  .league-mapping {
+    padding: 10px;
+  }
+}

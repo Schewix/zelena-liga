@@ -1,6 +1,8 @@
 import './Homepage.css';
 import {
   Fragment,
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useMemo,
@@ -42,6 +44,8 @@ import {
   calculateAfterpartyPoints,
   createEmptyAfterpartyCounts,
 } from '../afterparty';
+
+const LeaguePointsEditor = lazy(() => import('../league/LeaguePointsEditor'));
 
 const HOMEPAGE_GALLERY_PREFETCH_LIMIT = 3;
 const HOMEPAGE_GALLERY_PREFETCH_DELAY_MS = 900;
@@ -2193,6 +2197,7 @@ const EMPTY_SCHEDULE_FORM: EditorScheduleFormState = {
 const EDITOR_SECTIONS = [
   { id: 'clanky', label: 'Články' },
   { id: 'poradi-zl', label: 'Pořadí Zelené ligy' },
+  { id: 'body-zl', label: 'Výpočet bodů ZL' },
   { id: 'alba', label: 'Názvy alb' },
   { id: 'dokumenty', label: 'Dokumenty' },
   { id: 'terminy', label: 'Termíny' },
@@ -2207,6 +2212,11 @@ function readEditorSection(): EditorSection {
 
 function RedakcePage() {
   const [activeSection, setActiveSection] = useState<EditorSection>(readEditorSection);
+  const [leagueToolOpened, setLeagueToolOpened] = useState(() => readEditorSection() === 'body-zl');
+
+  useEffect(() => {
+    if (activeSection === 'body-zl') setLeagueToolOpened(true);
+  }, [activeSection]);
 
   useEffect(() => {
     const handleHashChange = () => setActiveSection(readEditorSection());
@@ -3380,6 +3390,9 @@ function RedakcePage() {
                 Odhlásit
               </button>
             </aside>
+            <section className="editor-section" aria-label="Výpočet bodů ZL" hidden={activeSection !== 'body-zl'}>
+              {leagueToolOpened && <Suspense fallback={<p role="status">Načítám výpočet bodů ZL…</p>}><LeaguePointsEditor /></Suspense>}
+            </section>
             {/* Keep editors mounted so navigation preserves drafts, uploads and rich text. */}
             <section
               className="editor-section editor-grid"

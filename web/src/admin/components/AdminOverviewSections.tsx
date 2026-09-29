@@ -900,8 +900,6 @@ type ResultsSectionProps = {
   eventId: string;
   totalMissingAcrossStations: number;
   summary: RaceDashboardSummary;
-  exportingLeague: boolean;
-  onExportLeaguePoints: () => void;
   scoringLocked: boolean;
   resultsConfirmedAt: string | null;
   confirmingResults: boolean;
@@ -914,8 +912,6 @@ export function AdminResultsSection({
   eventId,
   totalMissingAcrossStations,
   summary,
-  exportingLeague,
-  onExportLeaguePoints,
   scoringLocked,
   resultsConfirmedAt,
   confirmingResults,
@@ -1029,14 +1025,9 @@ export function AdminResultsSection({
             ? `Potvrzeno ${formatDateTimeForStatus(resultsConfirmedAt)}`
             : 'Potvrdit výsledky hlavním rozhodčím'}
         </button>
-        <button
-          type="button"
-          className="admin-button admin-button--primary admin-button--cta"
-          onClick={onExportLeaguePoints}
-          disabled={exportingLeague}
-        >
-          {exportingLeague ? 'Exportuji…' : 'Výpočet bodů do Zelené ligy'}
-        </button>
+        <a className="admin-button admin-button--primary admin-button--cta" href="/redakce#body-zl">
+          Výpočet bodů ZL v redakci
+        </a>
       </div>
       {confirmationMessage ? <p className={resultsConfirmedAt ? 'admin-success' : 'admin-error'}>{confirmationMessage}</p> : null}
     </section>
@@ -1482,8 +1473,6 @@ type ExportsOverviewSectionProps = {
   onToggle: () => void;
   onExportNameCheck: () => void;
   exportingNames: boolean;
-  onExportLeaguePoints: () => void;
-  exportingLeague: boolean;
 };
 
 export function AdminExportsOverviewSection({
@@ -1491,8 +1480,6 @@ export function AdminExportsOverviewSection({
   onToggle,
   onExportNameCheck,
   exportingNames,
-  onExportLeaguePoints,
-  exportingLeague,
 }: ExportsOverviewSectionProps) {
   return (
     <section
@@ -1527,14 +1514,9 @@ export function AdminExportsOverviewSection({
             >
               {exportingNames ? 'Exportuji…' : 'Export kontrola jmen'}
             </button>
-            <button
-              type="button"
-              className="admin-button admin-button--secondary"
-              onClick={onExportLeaguePoints}
-              disabled={exportingLeague}
-            >
-              {exportingLeague ? 'Exportuji…' : 'Export body ZL'}
-            </button>
+            <a className="admin-button admin-button--secondary" href="/redakce#body-zl">
+              Výpočet bodů ZL v redakci
+            </a>
           </div>
           <p className="admin-card-subtitle">
             TODO: audit log, offline queue/debug, diagnostika synchronizace a API nástroje.
