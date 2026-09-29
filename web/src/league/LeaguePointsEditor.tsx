@@ -349,8 +349,17 @@ export default function LeaguePointsEditor() {
             dostávají 1 bod.
           </p>
           <p>
-            V Excelu zkopíruj zvolenou variantu do žlutého sloupce <strong>Vybrané body ZL</strong>, případně
-            body ručně uprav. Výchozí je varianta bez cut-off. ID výsledku a záhlaví ponech beze změny.
+            V Excelu na každém listu vyber variantu v rozbalovací nabídce v buňce <strong>K2</strong>. Sloupec{' '}
+            <strong>Vybrané body ZL</strong> se vyplní automaticky. Jednotlivé body můžeš přepsat ručně;
+            přepsané buňky se při další změně varianty už nemění. Výchozí je varianta bez cut-off. ID výsledku
+            a záhlaví ponech beze změny.
+          </p>
+          <p>
+            Vpravo na každém listu najdeš hranice bodů nebo časů pro jednotlivá pásma všech variant. Pro
+            vlastní oříznutí vyber v <strong>K5</strong> posledního ponechaného soutěžícího podle anonymního
+            pořadí a výsledku a v <strong>K2</strong> zvol <strong>Vlastní oříznutí</strong>. Pásma se
+            přepočítají mezi nejlepším a zvoleným výsledkem, horší výsledky dostanou 1 bod. Shodné výsledky
+            zůstávají spolu.
           </p>
           <div className="league-table-scroll">
             <table>
@@ -388,7 +397,9 @@ export default function LeaguePointsEditor() {
             onClick={() =>
               void run(async () => {
                 await downloadWorkbook(proposalWorkbook(job), 'navrhy-pasem-zl.xlsx');
-                setMessage('Návrhy staženy. Uprav sloupec Vybrané body ZL a nahraj soubor v kroku 3.');
+                setMessage(
+                  'Návrhy staženy. Na každém listu vyber variantu v buňce K2 a nahraj soubor v kroku 3.',
+                );
               })
             }
           >

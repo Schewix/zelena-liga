@@ -100,12 +100,13 @@ describe('universal workbook round trip', () => {
     const sheet = proposal.getWorksheet('M')!;
     expect(sheet.getCell('I1').value).toBe(CHOICE_HEADER);
     // Deliberately reorder rows to verify matching uses IDs, not positions or names.
-    const rowValues = Array.from(
-      { length: job.participants.length },
-      (_, index) => sheet.getRow(index + 2).values,
+    const rowValues = Array.from({ length: job.participants.length }, (_, index) =>
+      Array.from({ length: 9 }, (_, column) => sheet.getCell(index + 2, column + 1).value),
     );
     rowValues.reverse().forEach((values, index) => {
-      sheet.getRow(index + 2).values = values;
+      values.forEach((value, column) => {
+        sheet.getCell(index + 2, column + 1).value = value;
+      });
     });
     const selections = await readSelections(job, await bytes(proposal));
     const final = await finalWorkbook(job, selections);
@@ -295,10 +296,10 @@ describe('categories from worksheet names', () => {
     expect(proposal.worksheets.map((sheet) => sheet.name)).toEqual(names);
     for (const name of names) {
       const sheet = proposal.getWorksheet(name)!;
-      expect(sheet.rowCount).toBe(5);
+      expect(sheet.getColumn(1).values.filter(Boolean)).toHaveLength(5);
       expect(sheet.getCell('B2').value).toBe(name);
-      expect(sheet.getCell('I2').value).toBe(16);
-      expect(sheet.getCell('I3').value).toBe(1);
+      expect(sheet.getCell('I2').result).toBe(16);
+      expect(sheet.getCell('I3').result).toBe(1);
       expect(sheet.getCell('C2').numFmt).toBe('[h]:mm:ss');
       expect(Number(sheet.getCell('C2').value) * 86400).toBeCloseTo(
         job.participants.find((row) => row.group === name)!.score!,
@@ -414,7 +415,7 @@ describe('anonymous band proposals', () => {
     ])
       expect(model).not.toContain(value);
     const resultSheet = saved.getWorksheet('H8')!;
-    expect(resultSheet.columnCount).toBe(9);
+    expect(resultSheet.columnCount).toBe(20);
     expect(resultSheet.getColumn(1).hidden).toBe(true);
     for (const participant of job.participants) expect(participant.id).toMatch(/^[a-f0-9]{64}$/);
     expect(new Set(job.participants.map((row) => row.id)).size).toBe(2);
@@ -430,5 +431,119 @@ describe('anonymous band proposals', () => {
     expect(output.getWorksheet('H8')!.getCell('D2').value).toBe(12);
     expect(output.getWorksheet('H8')!.getCell('D3').value).toBe(4);
     expect(output.getWorksheet('ZL – oddíly')!.getCell('B2').value).toBe('Soukromý oddíl Gama');
+  });
+});
+
+describe('category variant selector', () => {
+  it.each([0, 1, 2, 3])('imports selected variant %i even with stale formula caches', async (variant) => {
+    const { job } = await fixture();
+    const workbook = proposalWorkbook(job);
+    const sheet = workbook.getWorksheet('M')!;
+    sheet.getCell('K2').value = sheet.getCell(1, 5 + variant).value;
+    const selected = await readSelections(job, await bytes(workbook));
+    for (let row = 2; row <= job.participants.length + 1; row++) {
+      expect(selected.get(String(sheet.getCell(row, 1).value))!.points).toBe(
+        sheet.getCell(row, 5 + variant).value,
+      );
+    }
+  });
+
+  it('retains manual overrides when changing variant and rejects invalid selectors', async () => {
+    const { job } = await fixture();
+    const workbook = proposalWorkbook(job);
+    const sheet = workbook.getWorksheet('M')!;
+    sheet.getCell('K2').value = 'S cut-off';
+    sheet.getCell('I2').value = 9;
+    expect(
+      (await readSelections(job, await bytes(workbook))).get(String(sheet.getCell('A2').value))!.points,
+    ).toBe(9);
+    sheet.getCell('K2').value = 'Neplatná varianta';
+    await expect(readSelections(job, await bytes(workbook))).rejects.toThrow('K2');
+  });
+});
+
+describe('band boundaries and custom cutoff', () => {
+  it('exports exact interval thresholds for every variant', async () => {
+    const { job } = await fixture();
+    const sheet = proposalWorkbook(job).getWorksheet('M')!;
+    const dropped = [null, 'cutoffDropped', 'gaussCutoffDropped', 'gaussOpenCutoffDropped'] as const;
+    for (let variant = 0; variant < 4; variant++) {
+      const key = dropped[variant];
+      const pool = job.participants.filter((p) => p.status === 'finished' && (!key || !p.proposal[key]));
+      const best = Math.max(...pool.map((p) => p.score!));
+      const worst = Math.min(...pool.map((p) => p.score!));
+      for (let band = 1; band <= 6; band++)
+        expect(sheet.getCell(band + 1, 14 + variant).value).toBeCloseTo(best + ((worst - best) * band) / 7);
+      expect(sheet.getCell(10, 14 + variant).value).toBe(worst);
+    }
+  });
+
+  it.each([false, true])(
+    'recalculates custom bands with ties and manual overrides (time=%s)',
+    async (time) => {
+      const input = new ExcelJS.Workbook();
+      const sourceSheet = input.addWorksheet('H8');
+      sourceSheet.addRow(['Jméno', 'Oddíl', time ? 'Čas' : 'Body', 'Stav']);
+      // Exact seven-unit span makes each boundary observable, including a tie at the cutoff.
+      const scores = time
+        ? [100, 101, 102, 103, 104, 105, 106, 107, 107, 120]
+        : [100, 99, 98, 97, 96, 95, 94, 93, 93, 80];
+      scores.forEach((score, i) =>
+        sourceSheet.addRow([`Jméno ${i}`, 'Oddíl', time ? score / 86400 : score, '']),
+      );
+      sourceSheet.addRow(['DSQ', 'Oddíl', null, 'DSQ']);
+      sourceSheet.addRow(['DNF', 'Oddíl', null, 'DNF']);
+      if (time) sourceSheet.getColumn(3).numFmt = '[h]:mm:ss';
+      const source = await readSource('input.xlsx', await bytes(input));
+      const job = await prepareJob(source, [guessMapping(source.workbook.worksheets[0])], settings);
+      const proposal = proposalWorkbook(job);
+      const sheet = proposal.getWorksheet('H8')!;
+      sheet.getCell('K2').value = 'Vlastní oříznutí';
+      sheet.getCell('K5').value = sheet.getCell('S9').value; // eighth finished result, including its tie
+      const selected = await readSelections(job, await bytes(proposal));
+      expect(job.participants.map((p) => selected.get(p.id)!.points)).toEqual([
+        16, 16, 12, 9, 6, 4, 2, 1, 1, 1, 0, 1,
+      ]);
+      // A tie at the best result would also be kept: selecting only the winner is valid.
+      sheet.getCell('K5').value = sheet.getCell('S2').value;
+      const winnerOnly = await readSelections(job, await bytes(proposal));
+      expect(job.participants.slice(0, 10).map((p) => winnerOnly.get(p.id)!.points)).toEqual([
+        16, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+      ]);
+      sheet.getCell('I3').value = 12;
+      expect((await readSelections(job, await bytes(proposal))).get(job.participants[1].id)!.points).toBe(12);
+      sheet.getCell('K5').value = 'Neplatný soutěžící';
+      await expect(readSelections(job, await bytes(proposal))).rejects.toThrow('K5');
+      if (time) {
+        expect(sheet.getCell('N2').numFmt).toBe('[h]:mm:ss.000');
+        expect(Number(sheet.getCell('N2').value) * 86400).toBeCloseTo(100 + 20 / 7);
+      }
+    },
+  );
+
+  it('keeps category settings independent, including time thresholds', async () => {
+    const { job } = await categoryTimeFixture();
+    const workbook = proposalWorkbook(job);
+    const h = workbook.getWorksheet('H8')!;
+    const d = workbook.getWorksheet('D8')!;
+    h.getCell('K2').value = 'Vlastní oříznutí';
+    h.getCell('K5').value = h.getCell('S2').value;
+    expect(d.getCell('K2').value).toBe('Bez cut-off');
+    const selected = await readSelections(job, await bytes(workbook));
+    expect(selected.size).toBe(job.participants.length);
+    expect(Number(h.getCell('N2').value) * 86400).toBeCloseTo(1200 + 120 / 7);
+    expect(Number(d.getCell('N2').value) * 86400).toBeCloseTo(3000 + 120 / 7);
+  });
+
+  it('handles a category with no finishers without requiring a cutoff', async () => {
+    const { job } = await fixture();
+    const onlyUnfinished = { ...job, participants: job.participants.filter((p) => p.status !== 'finished') };
+    const workbook = proposalWorkbook(onlyUnfinished);
+    const sheet = workbook.getWorksheet('M')!;
+    sheet.getCell('K2').value = 'Vlastní oříznutí';
+    expect(sheet.getCell('N2').value).toBe('—');
+    expect(
+      [...(await readSelections(onlyUnfinished, await bytes(workbook))).values()].map((p) => p.points),
+    ).toEqual([1, 0]);
   });
 });

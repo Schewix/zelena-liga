@@ -1,4 +1,12 @@
 import ExcelJS from 'exceljs';
+import {
+  addProposalControls,
+  CUSTOM_VARIANT,
+  LEGACY_VARIANT_FORMULA,
+  VARIANT_FORMULA,
+  readCustomPoints,
+  sortedResults,
+} from './proposalControls';
 import { proposeBands, ZL_BAND_POINTS, type BandInput, type BandProposal } from './bands';
 
 export type SheetMapping = {
@@ -67,6 +75,7 @@ const HEADERS = [
   'Gauss otevřený cut-off',
   CHOICE_HEADER,
 ];
+const VARIANT_CELL = 'K2';
 const normalize = (s: string) =>
   s
     .normalize('NFD')
@@ -371,6 +380,7 @@ function styleSheet(sheet: ExcelJS.Worksheet) {
 }
 export function proposalWorkbook(job: LeagueJob): ExcelJS.Workbook {
   const workbook = new ExcelJS.Workbook();
+  workbook.calcProperties.fullCalcOnLoad = true;
   // Keep source category order, but sort competitors by performance within each category.
   const groups = new Map<string, Participant[]>();
   for (const participant of job.participants) {
@@ -381,12 +391,7 @@ export function proposalWorkbook(job: LeagueJob): ExcelJS.Workbook {
   for (const [group, participants] of groups) {
     const sheet = addUniqueSheet(workbook, group);
     sheet.addRow(HEADERS);
-    const sorted = [...participants].sort(
-      (a, b) =>
-        (a.status === 'finished' ? 0 : 1) - (b.status === 'finished' ? 0 : 1) ||
-        (a.lowerIsBetter ? 1 : -1) * ((a.score ?? 0) - (b.score ?? 0)) ||
-        a.row - b.row,
-    );
+    const sorted = sortedResults(participants);
     const previousDropped = new Map<string, boolean>();
     for (const participant of sorted) {
       const p = participant.proposal;
@@ -403,6 +408,7 @@ export function proposalWorkbook(job: LeagueJob): ExcelJS.Workbook {
         p.zlPointsGaussOpenCutoff,
         p.zlPointsNoCutoff,
       ]);
+      row.getCell(9).value = { formula: VARIANT_FORMULA, result: p.zlPointsNoCutoff };
       if (isTime) row.getCell(3).numFmt = '[h]:mm:ss';
       row.getCell(9).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF2CC' } };
       row.getCell(9).dataValidation = {
@@ -421,6 +427,9 @@ export function proposalWorkbook(job: LeagueJob): ExcelJS.Workbook {
     }
     styleSheet(sheet);
     sheet.getColumn(1).hidden = true;
+    const rowIsTime = (participant: Participant) =>
+      job.mappings.find((mapping) => mapping.sheet === participant.sheet)?.scoreFormat === 'time';
+    addProposalControls(sheet, participants, participants.every(rowIsTime), rowIsTime);
   }
   return workbook;
 }
@@ -445,6 +454,7 @@ export async function readSelections(job: LeagueJob, bytes: ArrayBuffer): Promis
   );
   const selected = new Map<string, Selection>();
   for (const sheet of sheets) {
+    const customByGroup = new Map<string, Map<string, number>>();
     const legacy = cellText(sheet.getCell(1, 2)) === LEGACY_HEADERS[1];
     const headers = legacy ? LEGACY_HEADERS : HEADERS;
     for (let column = 1; column <= headers.length; column++) {
@@ -494,7 +504,39 @@ export async function readSelections(job: LeagueJob, bytes: ArrayBuffer): Promis
           );
         }
       }
-      const points = parseNumber(cellValue(sheet.getCell(row, legacy ? 13 : 9)));
+      const choice = sheet.getCell(row, legacy ? 13 : 9);
+      let points = parseNumber(cellValue(choice));
+      if (
+        !legacy &&
+        choice.type === ExcelJS.ValueType.Formula &&
+        [VARIANT_FORMULA, LEGACY_VARIANT_FORMULA].includes(choice.formula)
+      ) {
+        // ExcelJS does not calculate formulas. Resolve our selector directly instead of trusting
+        // cached results, which can be stale when a workbook was saved without recalculation.
+        const variant = cellText(sheet.getCell(VARIANT_CELL));
+        if (variant === CUSTOM_VARIANT && choice.formula === VARIANT_FORMULA) {
+          if (!customByGroup.has(participant.group)) {
+            const participants = job.participants.filter((p) => p.group === participant.group);
+            const time = participants.every(
+              (p) => job.mappings.find((mapping) => mapping.sheet === p.sheet)?.scoreFormat === 'time',
+            );
+            try {
+              customByGroup.set(
+                participant.group,
+                readCustomPoints(participants, cellText(sheet.getCell('K5')), time),
+              );
+            } catch (error) {
+              throw new Error(`${sheet.name}: ${(error as Error).message}`);
+            }
+          }
+          points = customByGroup.get(participant.group)!.get(participant.id)!;
+        } else {
+          const variantIndex = HEADERS.slice(4, 8).indexOf(variant);
+          if (variantIndex < 0)
+            throw new Error(`${sheet.name}: v buňce ${VARIANT_CELL} vyber platnou variantu bodů.`);
+          points = parseNumber(cellValue(sheet.getCell(row, 5 + variantIndex)));
+        }
+      }
       if (points === null || ![0, ...ZL_BAND_POINTS].includes(points))
         throw new Error(`${location}: ve sloupci „${CHOICE_HEADER}“ musí být 0, 1, 2, 4, 6, 9, 12 nebo 16.`);
       if ((participant.status === 'DSQ' || participant.status === 'DNS') && points !== 0)

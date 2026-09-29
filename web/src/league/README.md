@@ -15,12 +15,20 @@ neodesílají. Administrace Setonova závodu odkazuje na tuto sekci.
    výchozí hodnota je 1.
 4. Připrav a stáhni návrhy. Každá skupina má vlastní list (např. H8, D8,
    H10, D10, H+, D+ nebo S), ve stejném pořadí jako ve zdroji. Časy se
-   v návrhu zobrazují jako časy. V Excelu zkopíruj preferovanou variantu do
-   sloupce **Vybrané body ZL** nebo jeho hodnoty uprav ručně. Výchozí varianta
+   v návrhu zobrazují jako časy. V Excelu vyber variantu v rozbalovací nabídce
+   **K2** na každém listu. Sloupec **Vybrané body ZL** se přepočítá automaticky.
+   Jednotlivé hodnoty lze přepsat ručně; přepsané buňky se při změně varianty
+   už nemění. Automatický výběr obnovíš zkopírováním vzorce z jiného řádku. Výchozí varianta
    je bez cut-off. Zachovej záhlaví a identifikační údaje; při řazení zahrň
    i skrytý sloupec ID. Návrh fyzicky neobsahuje jména, názvy hlídek, oddíly,
    původní čísla řádků ani název vstupního souboru. Názvy oddílů sjednoť
    ve vstupním souboru ještě před nahráním.
+   Vpravo jsou přesné hranice pásem pro každou variantu (u časů horní,
+   u bodů dolní hranice; rovnost patří do lepšího pásma). Pro vlastní
+   oříznutí vyber v **K5** posledního ponechaného podle anonymního pořadí
+   a výsledku a v **K2** zvol **Vlastní oříznutí**. Interval mezi nejlepším
+   a vybraným výsledkem se rozdělí na sedm pásem, horší dokončivší mají
+   1 bod. Shodné výsledky se nerozdělují. Volby jsou samostatné pro každou kategorii.
 5. Nahraj celý upravený sešit se všemi kategoriemi, zkontroluj součet oddílů
    a stáhni výsledky. Import přijímá i dřívější návrhy s jediným společným
    listem „Návrhy pásem“. Chybějící kategorie a duplicity napříč listy odmítne.
@@ -75,7 +83,8 @@ Podporovány jsou běžné výsledkové tabulky XLSX. Nejde o bezeztrátový edi
 všech rozšíření Excelu: makra/XLSM a starý XLS nejsou podporovány a pokročilé
 objekty mimo datový model ExcelJS nemusejí přežít opětovný zápis. Vzorce
 sloužící jako vstup pro výpočet musí mít uložený výsledek; aplikace sama
-vzorce nepřepočítává. Čísla kategorií, rozsahy a sloupce potvrzuje uživatel,
+obecné vzorce nepřepočítává. Vlastní vzorce exportu pro výběr varianty
+a oříznutí vyhodnocuje při importu přímo, i bez aktuálních uložených výsledků. Čísla kategorií, rozsahy a sloupce potvrzuje uživatel,
 nejde o odhadování struktury libovolného vizuálně formátovaného dokumentu.
 
 ## Ověření
