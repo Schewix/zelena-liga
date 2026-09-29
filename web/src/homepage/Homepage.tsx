@@ -2190,7 +2190,30 @@ const EMPTY_SCHEDULE_FORM: EditorScheduleFormState = {
   published: true,
 };
 
+const EDITOR_SECTIONS = [
+  { id: 'clanky', label: 'Články' },
+  { id: 'poradi-zl', label: 'Pořadí Zelené ligy' },
+  { id: 'alba', label: 'Názvy alb' },
+  { id: 'dokumenty', label: 'Dokumenty' },
+  { id: 'terminy', label: 'Termíny' },
+] as const;
+
+type EditorSection = (typeof EDITOR_SECTIONS)[number]['id'];
+
+function readEditorSection(): EditorSection {
+  const hash = window.location.hash.slice(1);
+  return EDITOR_SECTIONS.find((section) => section.id === hash)?.id ?? 'clanky';
+}
+
 function RedakcePage() {
+  const [activeSection, setActiveSection] = useState<EditorSection>(readEditorSection);
+
+  useEffect(() => {
+    const handleHashChange = () => setActiveSection(readEditorSection());
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
   const [session, setSession] = useState<'checking' | 'unauth' | 'auth'>('checking');
   const [password, setPassword] = useState('');
   const [articles, setArticles] = useState<EditorArticle[]>([]);
@@ -3314,8 +3337,8 @@ function RedakcePage() {
   return (
     <SiteShell>
       <main className="homepage-main">
-        <h1>Redakce článků</h1>
-        <p className="homepage-lead">Správa článků pro zelenaliga.cz.</p>
+        <h1>Redakce</h1>
+        <p className="homepage-lead">Správa obsahu a Zelené ligy pro zelenaliga.cz.</p>
 
         {session === 'checking' ? (
           <div className="homepage-card">Načítám…</div>
@@ -3339,17 +3362,36 @@ function RedakcePage() {
             {message ? <p className="homepage-alert">{message}</p> : null}
           </div>
         ) : (
-          <>
-            <div className="editor-grid">
+          <div className="editor-workspace">
+            <aside className="editor-sidebar">
+              <nav className="editor-navigation" aria-label="Sekce redakce">
+                {EDITOR_SECTIONS.map((section) => (
+                  <a
+                    key={section.id}
+                    href={`#${section.id}`}
+                    className={`editor-navigation-link${activeSection === section.id ? ' is-active' : ''}`}
+                    aria-current={activeSection === section.id ? 'page' : undefined}
+                  >
+                    {section.label}
+                  </a>
+                ))}
+              </nav>
+              <button type="button" className="homepage-button homepage-button--ghost" onClick={handleLogout}>
+                Odhlásit
+              </button>
+            </aside>
+            {/* Keep editors mounted so navigation preserves drafts, uploads and rich text. */}
+            <section
+              className="editor-section editor-grid"
+              aria-label="Články"
+              hidden={activeSection !== 'clanky'}
+            >
               <div className="homepage-card">
                 <div className="editor-list-header">
                   <h2>Články</h2>
                   <div className="editor-list-actions">
                     <button type="button" className="homepage-button homepage-button--ghost" onClick={handleNew}>
                       Nový
-                    </button>
-                    <button type="button" className="homepage-button homepage-button--ghost" onClick={handleLogout}>
-                      Odhlásit
                     </button>
                   </div>
                 </div>
@@ -3502,9 +3544,12 @@ function RedakcePage() {
                   </div>
                 </div>
               </div>
-            </div>
-
-            <div className="homepage-card editor-league">
+            </section>
+            <section
+              className="editor-section homepage-card editor-league"
+              aria-label="Pořadí Zelené ligy"
+              hidden={activeSection !== 'poradi-zl'}
+            >
               <div className="editor-league-toolbar">
                 <div>
                   <h2>Pořadí Zelené ligy podle ročníků</h2>
@@ -3702,9 +3747,12 @@ function RedakcePage() {
                   </div>
                 ))}
               </div>
-            </div>
-
-            <div className="homepage-card editor-albums">
+            </section>
+            <section
+              className="editor-section homepage-card editor-albums"
+              aria-label="Názvy alb"
+              hidden={activeSection !== 'alba'}
+            >
               <div className="editor-albums-header">
                 <div>
                   <h2>Názvy alb</h2>
@@ -3769,9 +3817,12 @@ function RedakcePage() {
                   ))}
                 </div>
               ) : null}
-            </div>
-
-            <div className="homepage-card editor-documents">
+            </section>
+            <section
+              className="editor-section homepage-card editor-documents"
+              aria-label="Dokumenty"
+              hidden={activeSection !== 'dokumenty'}
+            >
               <div className="editor-documents-header">
                 <div>
                   <h2>Dokumenty</h2>
@@ -4067,9 +4118,12 @@ function RedakcePage() {
                   </div>
                 </div>
               </div>
-            </div>
-
-            <div className="homepage-card editor-documents editor-schedule">
+            </section>
+            <section
+              className="editor-section homepage-card editor-documents editor-schedule"
+              aria-label="Termíny"
+              hidden={activeSection !== 'terminy'}
+            >
               <div className="editor-documents-header">
                 <div>
                   <h2>Termíny</h2>
@@ -4213,8 +4267,8 @@ function RedakcePage() {
                   </div>
                 </div>
               </div>
-            </div>
-          </>
+            </section>
+          </div>
         )}
       </main>
     </SiteShell>

@@ -2778,6 +2778,92 @@ a.schedule-doc-link:focus-visible {
   font-weight: 600;
 }
 
+.editor-workspace {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.editor-sidebar {
+  display: grid;
+  gap: 20px;
+  position: sticky;
+  top: 24px;
+}
+
+.editor-sidebar > button {
+  padding: 8px 18px;
+  border: 1px solid rgba(4, 55, 44, 0.3);
+  border-radius: 999px;
+  background: transparent;
+  color: #04372c;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.editor-navigation {
+  display: grid;
+  gap: 6px;
+}
+
+.editor-navigation-link {
+  padding: 12px 16px;
+  border-radius: 12px;
+  color: #04372c;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.editor-navigation-link:hover {
+  background: rgba(4, 55, 44, 0.08);
+}
+
+.editor-navigation-link.is-active {
+  background: #04372c;
+  color: #fff;
+}
+
+.editor-navigation-link:focus-visible {
+  outline: 2px solid #04372c;
+  outline-offset: 3px;
+}
+
+.editor-section {
+  min-width: 0;
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.editor-section[hidden] {
+  display: none;
+}
+
+@media (max-width: 1100px) {
+  .editor-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .editor-sidebar {
+    position: static;
+  }
+
+  .editor-navigation {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .editor-section {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .editor-sidebar > button {
+    justify-self: start;
+  }
+}
+
 .editor-grid {
   display: grid;
   gap: 24px;
