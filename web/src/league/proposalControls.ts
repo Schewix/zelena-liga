@@ -85,11 +85,6 @@ export function addProposalControls(
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF04372C' } };
     cell.alignment = { wrapText: true, vertical: 'middle' };
   };
-  const note = (address: string, text: string) => {
-    const cell = sheet.getCell(address);
-    cell.value = text;
-    cell.alignment = { wrapText: true, vertical: 'top' };
-  };
   heading('J1', CUSTOM_VARIANT);
   heading('K1', 'Varianta pro celou kategorii');
   sheet.getColumn('J').width = 23;
@@ -139,17 +134,6 @@ export function addProposalControls(
   heading('K8', 'Nejlepší výsledek');
   sheet.getCell('K9').value = options.length ? options[0].score / scale : '—';
   sheet.getCell('K9').numFmt = format;
-  note(
-    'K11',
-    'Pro použití vlastního oříznutí vyber v K2 „Vlastní oříznutí“. Shodné výsledky zůstávají spolu.',
-  );
-  note(
-    'K12',
-    'Ručně přepsané Vybrané body ZL se při změně varianty nemění. Obnovíš je zkopírováním vzorce z jiného řádku.',
-  );
-  sheet.getRow(11).height = 60;
-  sheet.getRow(12).height = 75;
-
   heading('M1', 'Hranice pro body ZL');
   [...variantNames, CUSTOM_VARIANT].forEach((name, i) => heading(`${String.fromCharCode(78 + i)}1`, name));
   ZL_BAND_POINTS.slice(0, 6).forEach((points, i) => {
@@ -157,13 +141,6 @@ export function addProposalControls(
   });
   sheet.getCell('M8').value = 1;
   sheet.getCell('M10').value = 'Poslední ponechaný';
-  sheet.getCell('M11').value = lower ? 'Čas/výsledek ≤ hranice' : 'Výsledek ≥ hranice';
-  sheet.getCell('M11').alignment = { wrapText: true };
-  sheet.mergeCells('N12:R12');
-  note(
-    'N12',
-    'Hranice jsou včetně rovnosti. Platí první splněné pásmo od 16 bodů. Výsledky za oříznutím mají 1 bod. DSQ/DNS = 0, DNF = 1. Hranice jsou zobrazené zaokrouhleně; výpočet používá plnou přesnost.',
-  );
   for (let variantIndex = 0; variantIndex < 5; variantIndex++) {
     const droppedKey = droppedKeys[variantIndex];
     const pool = finished.filter((p) => !droppedKey || !p.proposal[droppedKey]);
