@@ -38,14 +38,27 @@ export type LeagueJob = {
   key: string;
 };
 export type Selection = { points: number; troop: string };
+// Legacy exports used one shared sheet; the importer still accepts that layout.
 export const PROPOSAL_SHEET = 'Návrhy pásem';
+const INSTRUCTIONS_SHEET = 'Jak vybrat pásma';
 export const CHOICE_HEADER = 'Vybrané body ZL';
-const HEADERS = [
+const LEGACY_HEADERS = [
   'ID výsledku',
   'Původní list',
   'Původní řádek',
   'Soutěžící / hlídka',
   'Oddíl / rozdělení',
+  'Skupina',
+  'Výsledek',
+  'Stav',
+  'Bez cut-off',
+  'S cut-off',
+  'Gauss s cut-off',
+  'Gauss otevřený cut-off',
+  CHOICE_HEADER,
+];
+const HEADERS = [
+  'ID výsledku',
   'Skupina',
   'Výsledek',
   'Stav',
@@ -180,6 +193,12 @@ const ALIASES = {
   sexColumn: ['pohlavi', 'sex'],
   statusColumn: ['stav', 'status', 'poradi', '#'],
 };
+export function describeLeagueGroup(group: string): string {
+  const match = group.trim().match(/^([HD])\s*(\d+|\+)$/i);
+  if (!match) return group;
+  return `${group} – ${match[1].toUpperCase() === 'H' ? 'hoši' : 'dívky'}, věková kategorie ${match[2]}`;
+}
+
 export function guessMapping(sheet: ExcelJS.Worksheet, headerRow = 1): SheetMapping {
   const mapping: SheetMapping = {
     sheet: sheet.name,
@@ -319,7 +338,7 @@ export async function prepareJob(
       if (mapping.sexColumn && !sex) throw new Error(`${location}: chybí pohlaví.`);
       const group = [category || mapping.group.trim() || sheet.name, sex].filter(Boolean).join(' / ');
       participants.push({
-        id: `${key}:${sheet.id}:${row}`,
+        id: await digest(new TextEncoder().encode(`${key}:${sheet.id}:${row}`).buffer),
         name,
         troop,
         sheet: sheet.name,
@@ -353,122 +372,163 @@ function styleSheet(sheet: ExcelJS.Worksheet) {
 }
 export function proposalWorkbook(job: LeagueJob): ExcelJS.Workbook {
   const workbook = new ExcelJS.Workbook();
-  const instructions = workbook.addWorksheet('Jak vybrat pásma');
+  const instructions = workbook.addWorksheet(INSTRUCTIONS_SHEET);
   [
     'Návrhy bodů Zelené ligy',
-    'Na listu Návrhy pásem zkopíruj zvolenou variantu do sloupce Vybrané body ZL. Výchozí jsou body bez cut-off.',
+    'Každá skupina má vlastní list. Na všech listech zkopíruj zvolenou variantu do sloupce Vybrané body ZL. Výchozí jsou body bez cut-off.',
+    'Bez sloupce Kategorie se použije název původního listu: H8 a D8 jsou samostatné skupiny, stejně jako H+, D+ a další názvy.',
     'Můžeš zvolit jinou variantu pro každou skupinu nebo jednotlivé řádky upravit ručně.',
     'Povolené body: 0, 1, 2, 4, 6, 9, 12, 16. DSQ/DNS musí mít 0, DNF 1.',
     'Neměň ID výsledku ani záhlaví. Řádky můžeš přerovnat, ale žádný nesmí chybět ani se opakovat.',
-    'Oddíl / rozdělení lze opravit. Smíšená hlídka: Oddíl A=2; Oddíl B=1. Samotné názvy oddělené středníkem mají stejné podíly.',
+    'Návrh neobsahuje jména soutěžících, názvy hlídek ani oddíly. Body se při importu přiřadí přes anonymní ID k původním výsledkům.',
     `Součet oddílu = ${job.settings.maxResults || 'všechny'} nejlepší příspěvky × ${job.settings.coefficient} + ${job.settings.participation} bodů za účast. DSQ/DNS nepřispívají ani k účasti.`,
     'Červená horní čára označuje začátek výsledků pod cut-off (dostávají 1 bod). Shodné výsledky se nerozdělují.',
     'Cut-off hledá výrazné mezery ve druhé polovině výsledků. Gauss vybírá mez podle rozložení do sedmi pásem.',
     'Zpětný import prováděj ve stejné rozpracované úloze. Po obnovení stránky nahraj původní soubor a nastav stejné parametry.',
-    `Původní soubor: ${job.source.name}`,
   ].forEach((line) => instructions.addRow([line]));
   instructions.getColumn(1).width = 110;
   instructions.eachRow((row) => {
     row.alignment = { wrapText: true };
     row.height = 36;
   });
-  const sheet = workbook.addWorksheet(PROPOSAL_SHEET);
-  sheet.addRow(HEADERS);
-  const sorted = [...job.participants].sort(
-    (a, b) =>
-      a.group.localeCompare(b.group, 'cs') ||
-      (a.status === 'finished' ? 0 : 1) - (b.status === 'finished' ? 0 : 1) ||
-      (a.lowerIsBetter ? 1 : -1) * ((a.score ?? 0) - (b.score ?? 0)) ||
-      a.row - b.row,
-  );
-  const previousDropped = new Map<string, boolean>();
-  for (const participant of sorted) {
-    const p = participant.proposal;
-    const row = sheet.addRow([
-      participant.id,
-      participant.sheet,
-      participant.row,
-      participant.name,
-      participant.troop,
-      participant.group,
-      participant.score,
-      participant.status,
-      p.zlPointsNoCutoff,
-      p.zlPointsWithCutoff,
-      p.zlPointsGaussWithCutoff,
-      p.zlPointsGaussOpenCutoff,
-      p.zlPointsNoCutoff,
-    ]);
-    row.getCell(13).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF2CC' } };
-    row.getCell(13).dataValidation = {
-      type: 'list',
-      allowBlank: false,
-      formulae: ['"0,1,2,4,6,9,12,16"'],
-      showErrorMessage: true,
-      error: 'Vyber platné body ZL.',
-    };
-    [p.cutoffDropped, p.gaussCutoffDropped, p.gaussOpenCutoffDropped].forEach((dropped, index) => {
-      const key = `${participant.group}:${index}`;
-      if (dropped && !previousDropped.get(key))
-        row.getCell(10 + index).border = { top: { style: 'thick', color: { argb: 'FFC62828' } } };
-      previousDropped.set(key, dropped);
-    });
+  // Keep source category order, but sort competitors by performance within each category.
+  const groups = new Map<string, Participant[]>();
+  for (const participant of job.participants) {
+    const rows = groups.get(participant.group) ?? [];
+    rows.push(participant);
+    groups.set(participant.group, rows);
   }
-  styleSheet(sheet);
-  sheet.getColumn(1).hidden = true;
-  sheet.getColumn(4).width = 30;
-  sheet.getColumn(5).width = 38;
+  for (const [group, participants] of groups) {
+    const sheet = addUniqueSheet(workbook, group);
+    sheet.addRow(HEADERS);
+    const sorted = [...participants].sort(
+      (a, b) =>
+        (a.status === 'finished' ? 0 : 1) - (b.status === 'finished' ? 0 : 1) ||
+        (a.lowerIsBetter ? 1 : -1) * ((a.score ?? 0) - (b.score ?? 0)) ||
+        a.row - b.row,
+    );
+    const previousDropped = new Map<string, boolean>();
+    for (const participant of sorted) {
+      const p = participant.proposal;
+      const isTime =
+        job.mappings.find((mapping) => mapping.sheet === participant.sheet)?.scoreFormat === 'time';
+      const row = sheet.addRow([
+        participant.id,
+        participant.group,
+        isTime && participant.score !== null ? participant.score / 86400 : participant.score,
+        participant.status,
+        p.zlPointsNoCutoff,
+        p.zlPointsWithCutoff,
+        p.zlPointsGaussWithCutoff,
+        p.zlPointsGaussOpenCutoff,
+        p.zlPointsNoCutoff,
+      ]);
+      if (isTime) row.getCell(3).numFmt = '[h]:mm:ss';
+      row.getCell(9).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF2CC' } };
+      row.getCell(9).dataValidation = {
+        type: 'list',
+        allowBlank: false,
+        formulae: ['"0,1,2,4,6,9,12,16"'],
+        showErrorMessage: true,
+        error: 'Vyber platné body ZL.',
+      };
+      [p.cutoffDropped, p.gaussCutoffDropped, p.gaussOpenCutoffDropped].forEach((dropped, index) => {
+        const key = `${participant.group}:${index}`;
+        if (dropped && !previousDropped.get(key))
+          row.getCell(6 + index).border = { top: { style: 'thick', color: { argb: 'FFC62828' } } };
+        previousDropped.set(key, dropped);
+      });
+    }
+    styleSheet(sheet);
+    sheet.getColumn(1).hidden = true;
+  }
   return workbook;
 }
 export async function readSelections(job: LeagueJob, bytes: ArrayBuffer): Promise<Map<string, Selection>> {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(bytes);
-  const sheet = workbook.getWorksheet(PROPOSAL_SHEET);
-  if (!sheet) throw new Error(`Chybí list „${PROPOSAL_SHEET}“. Nahraj upravený export návrhů.`);
-  for (let column = 1; column <= HEADERS.length; column++) {
-    if (cellText(sheet.getCell(1, column)) !== HEADERS[column - 1])
-      throw new Error('Záhlaví návrhu bylo změněno. Zachovej původní názvy a pořadí sloupců.');
-  }
+  // Headers identify both anonymized exports and older proposals with identity columns.
+  const sheets = workbook.worksheets.filter(
+    (sheet) =>
+      cellText(sheet.getCell(1, 1)) === HEADERS[0] ||
+      cellText(sheet.getCell(1, 9)) === CHOICE_HEADER ||
+      cellText(sheet.getCell(1, 13)) === CHOICE_HEADER,
+  );
+  if (!sheets.length) throw new Error('Chybí listy s návrhy pásem. Nahraj upravený export návrhů.');
   const expected = new Map(job.participants.map((row) => [row.id, row]));
+  // Support proposals downloaded before IDs became opaque; never write these old IDs in new exports.
+  const legacyExpected = new Map(
+    job.participants.map((row) => [
+      `${job.key}:${job.source.workbook.getWorksheet(row.sheet)!.id}:${row.row}`,
+      row,
+    ]),
+  );
   const selected = new Map<string, Selection>();
-  for (let row = 2; row <= sheet.rowCount; row++) {
-    if (
-      !sheet.getRow(row).values ||
-      !Array.from({ length: HEADERS.length }, (_, i) => cellText(sheet.getCell(row, i + 1))).some(Boolean)
-    )
-      continue;
-    const id = cellText(sheet.getCell(row, 1));
-    const participant = expected.get(id);
-    if (!participant)
-      throw new Error(
-        `Řádek ${row}: cizí nebo chybějící ID. Návrh musí patřit k tomuto souboru a nastavení.`,
-      );
-    if (selected.has(id))
-      throw new Error(`Řádek ${row}: výsledek „${participant.name}“ je v návrhu dvakrát.`);
-    if (
-      cellText(sheet.getCell(row, 2)) !== participant.sheet ||
-      parseNumber(cellValue(sheet.getCell(row, 3))) !== participant.row ||
-      cellText(sheet.getCell(row, 4)) !== participant.name ||
-      cellText(sheet.getCell(row, 6)) !== participant.group ||
-      cellText(sheet.getCell(row, 8)) !== participant.status
-    ) {
-      throw new Error(
-        `Řádek ${row}: údaje soutěžícího neodpovídají ID. Při řazení přesouvej celé řádky včetně skrytého ID; upravuj pouze vybrané body a oddíl.`,
-      );
+  for (const sheet of sheets) {
+    const legacy = cellText(sheet.getCell(1, 2)) === LEGACY_HEADERS[1];
+    const headers = legacy ? LEGACY_HEADERS : HEADERS;
+    for (let column = 1; column <= headers.length; column++) {
+      if (cellText(sheet.getCell(1, column)) !== headers[column - 1])
+        throw new Error('Záhlaví návrhu bylo změněno. Zachovej původní názvy a pořadí sloupců.');
     }
-    const points = parseNumber(cellValue(sheet.getCell(row, 13)));
-    if (points === null || ![0, ...ZL_BAND_POINTS].includes(points))
-      throw new Error(`Řádek ${row}: ve sloupci „${CHOICE_HEADER}“ musí být 0, 1, 2, 4, 6, 9, 12 nebo 16.`);
-    if ((participant.status === 'DSQ' || participant.status === 'DNS') && points !== 0)
-      throw new Error(`Řádek ${row}: DSQ/DNS musí mít 0 bodů.`);
-    if (participant.status === 'DNF' && points !== 1) throw new Error(`Řádek ${row}: DNF musí mít 1 bod.`);
-    const troop = cellText(sheet.getCell(row, 5));
-    try {
-      parseTroops(troop);
-    } catch (error) {
-      throw new Error(`Řádek ${row}: ${(error as Error).message}`);
+    for (let row = 2; row <= sheet.rowCount; row++) {
+      if (
+        !Array.from({ length: headers.length }, (_, i) => cellText(sheet.getCell(row, i + 1))).some(Boolean)
+      )
+        continue;
+      const location = `${sheet.name}, řádek ${row}`;
+      const id = cellText(sheet.getCell(row, 1));
+      const participant = expected.get(id) ?? (legacy ? legacyExpected.get(id) : undefined);
+      if (!participant)
+        throw new Error(
+          `${location}: cizí nebo chybějící ID. Návrh musí patřit k tomuto souboru a nastavení.`,
+        );
+      if (selected.has(participant.id))
+        throw new Error(`${location}: stejné ID výsledku je v návrhu dvakrát.`);
+      if (legacy) {
+        if (
+          cellText(sheet.getCell(row, 2)) !== participant.sheet ||
+          parseNumber(cellValue(sheet.getCell(row, 3))) !== participant.row ||
+          cellText(sheet.getCell(row, 4)) !== participant.name ||
+          cellText(sheet.getCell(row, 6)) !== participant.group ||
+          cellText(sheet.getCell(row, 8)) !== participant.status
+        ) {
+          throw new Error(
+            `${location}: údaje soutěžícího neodpovídají ID. Při řazení přesouvej celé řádky včetně skrytého ID.`,
+          );
+        }
+      } else {
+        const format = job.mappings.find((mapping) => mapping.sheet === participant.sheet)!.scoreFormat;
+        const score = parseScore(sheet.getCell(row, 3), format);
+        const matchingScore =
+          score === null || participant.score === null
+            ? score === participant.score
+            : Math.abs(score - participant.score) <= Math.max(1e-6, Math.abs(participant.score) * 1e-10);
+        if (
+          cellText(sheet.getCell(row, 2)) !== participant.group ||
+          cellText(sheet.getCell(row, 4)) !== participant.status ||
+          !matchingScore
+        ) {
+          throw new Error(
+            `${location}: skupina, výsledek nebo stav neodpovídá ID. Při řazení přesouvej celé řádky včetně skrytého ID; upravuj pouze vybrané body.`,
+          );
+        }
+      }
+      const points = parseNumber(cellValue(sheet.getCell(row, legacy ? 13 : 9)));
+      if (points === null || ![0, ...ZL_BAND_POINTS].includes(points))
+        throw new Error(`${location}: ve sloupci „${CHOICE_HEADER}“ musí být 0, 1, 2, 4, 6, 9, 12 nebo 16.`);
+      if ((participant.status === 'DSQ' || participant.status === 'DNS') && points !== 0)
+        throw new Error(`${location}: DSQ/DNS musí mít 0 bodů.`);
+      if (participant.status === 'DNF' && points !== 1) throw new Error(`${location}: DNF musí mít 1 bod.`);
+      // New proposals contain no troop data. Restore it only from the original upload.
+      const troop = legacy ? cellText(sheet.getCell(row, 5)) : participant.troop;
+      try {
+        parseTroops(troop);
+      } catch (error) {
+        throw new Error(`${location}: ${(error as Error).message}`);
+      }
+      selected.set(participant.id, { points, troop });
     }
-    selected.set(id, { points, troop });
   }
   if (selected.size !== expected.size)
     throw new Error(`V návrhu chybí ${expected.size - selected.size} výsledků. Zachovej všechny řádky.`);
@@ -514,10 +574,17 @@ export function troopTotals(job: LeagueJob, selections: Map<string, Selection>):
   return [...troops.values()].sort((a, b) => b.total - a.total || a.name.localeCompare(b.name, 'cs'));
 }
 function addUniqueSheet(workbook: ExcelJS.Workbook, name: string) {
-  let unique = name,
-    index = 2;
-  while (workbook.worksheets.some((sheet) => sheet.name.toLocaleLowerCase() === unique.toLocaleLowerCase()))
-    unique = `${name} (${index++})`;
+  const base =
+    name
+      .replace(/[\\/*?:[\]\x00-\x1f]/g, ' ')
+      .replace(/^'+|'+$/g, '')
+      .trim() || 'Skupina';
+  let unique = base.slice(0, 31).replace(/'+$/, '');
+  let index = 2;
+  while (workbook.worksheets.some((sheet) => sheet.name.toLocaleLowerCase() === unique.toLocaleLowerCase())) {
+    const suffix = ` (${index++})`;
+    unique = `${base.slice(0, 31 - suffix.length).trimEnd()}${suffix}`;
+  }
   return workbook.addWorksheet(unique);
 }
 export async function finalWorkbook(

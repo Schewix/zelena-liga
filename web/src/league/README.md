@@ -13,16 +13,23 @@ neodesílají. Administrace Setonova závodu odkazuje na tuto sekci.
 3. Nastav koeficient, počet nejlepších výsledků (výchozí 4; 0 = všechny)
    a body za účast (výchozí 10). Koeficient je povinné kladné číslo,
    výchozí hodnota je 1.
-4. Připrav a stáhni návrhy. V Excelu zkopíruj preferovanou variantu do
+4. Připrav a stáhni návrhy. Každá skupina má vlastní list (např. H8, D8,
+   H10, D10, H+, D+ nebo S), ve stejném pořadí jako ve zdroji. Časy se
+   v návrhu zobrazují jako časy. V Excelu zkopíruj preferovanou variantu do
    sloupce **Vybrané body ZL** nebo jeho hodnoty uprav ručně. Výchozí varianta
    je bez cut-off. Zachovej záhlaví a identifikační údaje; při řazení zahrň
-   i skrytý sloupec ID. Oddíl/rozdělení lze upravit pro sjednocení názvů.
-5. Nahraj upravený návrh, zkontroluj součet oddílů a stáhni výsledky.
+   i skrytý sloupec ID. Návrh fyzicky neobsahuje jména, názvy hlídek, oddíly,
+   původní čísla řádků ani název vstupního souboru. Názvy oddílů sjednoť
+   ve vstupním souboru ještě před nahráním.
+5. Nahraj celý upravený sešit se všemi kategoriemi, zkontroluj součet oddílů
+   a stáhni výsledky. Import přijímá i dřívější návrhy s jediným společným
+   listem „Návrhy pásem“. Chybějící kategorie a duplicity napříč listy odmítne.
 
 Nastavení není trvale ukládáno. Přepnutí na jinou sekci redakce zachovává
 rozpracovanou úlohu. Po obnovení stránky nahraj stejný původní soubor a
-nastav stejné parametry. ID se odvozuje od SHA-256 původního souboru,
-nastavení, listu a čísla řádku. Duplicitní jména nevadí. Návrhy pro jiný
+nastav stejné parametry. ID je SHA-256 otisk kombinace původního souboru, nastavení, listu a čísla
+řádku; neobsahuje čitelné souřadnice ani jména. Při importu se původní
+identita a oddíl obnoví z načteného zdroje. Duplicitní jména nevadí. Návrhy pro jiný
 soubor či jiný koeficient se odmítnou.
 
 ## Pásma a pravidla
@@ -40,7 +47,9 @@ soubor či jiný koeficient se odmítnou.
   patří do formátu **Číslo**, nikoliv **Čas**. Časy se pro výpočet převádějí
   na sekundy; původní buňky se nemění.
 - Kategorie a pohlaví určují skupinu napříč listy. Bez kategorie se použije
-  zadaný název skupiny, výchozí je název listu. Směry hodnocení uvnitř stejné
+  zadaný název skupiny, výchozí je název listu. U názvů H8/D8 atd. se
+  v rozhraní vysvětlí H = hoši, D = dívky a číslo = věková kategorie;
+  název S zůstává samostatnou skupinou bez odhadování významu. Směry hodnocení uvnitř stejné
   skupiny se nesmějí lišit. Malé kategorie se neslučují automaticky;
   sloučení nastav uživatel společným názvem skupiny či sloupcem Kategorie.
 - DSQ/DNS = 0 bodů a žádná započtená účast. DNF = 1 bod, účast se započítá.
@@ -48,7 +57,7 @@ soubor či jiný koeficient se odmítnou.
 - Smíšené hlídky se zadávají explicitně: `Oddíl A=2; Oddíl B=1` přidělí
   dvě třetiny bodů prvnímu oddílu a třetinu druhému. Samotné názvy oddělené
   středníkem znamenají stejné podíly. Názvy se sjednocují podle velikosti
-  písmen a diakritiky; odlišné názvy téhož oddílu oprav v návrhu.
+  písmen a diakritiky; odlišné názvy téhož oddílu oprav ve zdrojové tabulce před nahráním.
 - Každý soutěžní řádek přispívá do oddílu jednou. Nejlepší příspěvky se
   vybírají přes všechny kategorie. Výsledek oddílu = jejich součet ×
   koeficient + body za účast; účast se přičte jednou za oddíl. Výpočty se

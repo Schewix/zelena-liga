@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { proposeBands, type BandInput } from '../league/bands';
 import {
   CHOICE_HEADER,
+  describeLeagueGroup,
   PROPOSAL_SHEET,
   finalWorkbook,
   guessMapping,
@@ -96,8 +97,8 @@ describe('universal workbook round trip', () => {
   it('reads multiple sheets and keeps source cells, formulas, formatting and row positions', async () => {
     const { job, source } = await fixture();
     const proposal = proposalWorkbook(job);
-    const sheet = proposal.getWorksheet(PROPOSAL_SHEET)!;
-    expect(sheet.getCell('M1').value).toBe(CHOICE_HEADER);
+    const sheet = proposal.getWorksheet('M')!;
+    expect(sheet.getCell('I1').value).toBe(CHOICE_HEADER);
     // Deliberately reorder rows to verify matching uses IDs, not positions or names.
     const rowValues = Array.from(
       { length: job.participants.length },
@@ -154,17 +155,17 @@ describe('universal workbook round trip', () => {
     async (kind) => {
       const { job } = await fixture();
       const proposal = proposalWorkbook(job),
-        sheet = proposal.getWorksheet(PROPOSAL_SHEET)!;
+        sheet = proposal.getWorksheet('M')!;
       if (kind === 'missing') sheet.spliceRows(2, 1);
       if (kind === 'duplicate') sheet.getCell('A3').value = sheet.getCell('A2').value;
       if (kind === 'foreign') sheet.getCell('A2').value = 'foreign-job';
-      if (kind === 'blank') sheet.getCell('M2').value = null;
-      if (kind === 'invalid') sheet.getCell('M2').value = 15;
-      if (kind === 'header') sheet.getCell('M1').value = 'Other';
+      if (kind === 'blank') sheet.getCell('I2').value = null;
+      if (kind === 'invalid') sheet.getCell('I2').value = 15;
+      if (kind === 'header') sheet.getCell('I1').value = 'Other';
       if (kind === 'misaligned') sheet.getCell('C2').value = sheet.getCell('C3').value;
       if (kind === 'dsq' || kind === 'dnf') {
         sheet.eachRow((row, index) => {
-          if (row.getCell(8).value === kind.toUpperCase()) sheet.getCell(index, 13).value = 16;
+          if (row.getCell(4).value === kind.toUpperCase()) sheet.getCell(index, 9).value = 16;
         });
       }
       await expect(readSelections(job, await bytes(proposal))).rejects.toThrow();
@@ -252,5 +253,182 @@ describe('universal workbook round trip', () => {
     await expect(prepareJob(source, [{ ...mapping, nameColumn: 0 }], settings)).rejects.toThrow('sloupce');
     expect(() => parseTroops('Draci=-1')).toThrow();
     expect(() => parseTroops('')).toThrow();
+  });
+});
+
+async function categoryTimeFixture() {
+  const workbook = new ExcelJS.Workbook();
+  const names = ['H8', 'H10', 'H12', 'H14', 'H18', 'H+', 'D8', 'D10', 'D12', 'D14', 'D18', 'D+', 'S'];
+  names.forEach((name, index) => {
+    const sheet = workbook.addWorksheet(name);
+    sheet.addRow(['#', 'Jméno', 'Oddíl', 'Čas']);
+    const baseSeconds = 1200 + index * 300;
+    sheet.addRow(['1.', 'První', 'Oddíl A', baseSeconds / 86400]);
+    sheet.addRow(['2.', 'Druhý', 'Oddíl B', (baseSeconds + 120) / 86400]);
+    sheet.addRow(['DISK', 'Diskvalifikovaný', 'Oddíl C', 'DISK']);
+    sheet.addRow(['VZDAL', 'Nedokončil', 'Oddíl D', 'VZDAL']);
+    sheet.getColumn(4).numFmt = 'h:mm:ss';
+  });
+  const source = await readSource('categories.xlsx', await bytes(workbook));
+  const mappings = source.workbook.worksheets.map((sheet) => guessMapping(sheet));
+  const job = await prepareJob(source, mappings, settings);
+  return { job, mappings, names };
+}
+
+describe('categories from worksheet names', () => {
+  it('exports H/D age categories, plus categories and S as separate worksheets in source order', async () => {
+    const { job, mappings, names } = await categoryTimeFixture();
+    expect(
+      mappings.every(
+        (mapping) =>
+          !mapping.categoryColumn &&
+          !mapping.sexColumn &&
+          mapping.lowerIsBetter &&
+          mapping.scoreFormat === 'time',
+      ),
+    ).toBe(true);
+    expect([...new Set(job.participants.map((row) => row.group))]).toEqual(names);
+    expect(describeLeagueGroup('H8')).toBe('H8 – hoši, věková kategorie 8');
+    expect(describeLeagueGroup('D+')).toBe('D+ – dívky, věková kategorie +');
+    expect(describeLeagueGroup('S')).toBe('S');
+    const proposal = proposalWorkbook(job);
+    expect(proposal.worksheets.map((sheet) => sheet.name)).toEqual(['Jak vybrat pásma', ...names]);
+    for (const name of names) {
+      const sheet = proposal.getWorksheet(name)!;
+      expect(sheet.rowCount).toBe(5);
+      expect(sheet.getCell('B2').value).toBe(name);
+      expect(sheet.getCell('I2').value).toBe(16);
+      expect(sheet.getCell('I3').value).toBe(1);
+      expect(sheet.getCell('C2').numFmt).toBe('[h]:mm:ss');
+      expect(Number(sheet.getCell('C2').value) * 86400).toBeCloseTo(
+        job.participants.find((row) => row.group === name)!.score!,
+      );
+    }
+    // Choose different bands on different sheets and return the entire workbook.
+    proposal.getWorksheet('H8')!.getCell('I2').value = 12;
+    proposal.getWorksheet('D8')!.getCell('I2').value = 9;
+    const selected = await readSelections(job, await bytes(proposal));
+    expect(selected.size).toBe(52);
+    const final = await finalWorkbook(job, selected);
+    expect(final.getWorksheet('H8')!.getCell('E2').value).toBe(12);
+    expect(final.getWorksheet('D8')!.getCell('E2').value).toBe(9);
+    expect(final.getWorksheet('H10')!.getCell('E2').value).toBe(16);
+  });
+
+  it('still imports the old single-sheet proposal format', async () => {
+    const { job } = await categoryTimeFixture();
+    const legacy = new ExcelJS.Workbook();
+    const sheet = legacy.addWorksheet(PROPOSAL_SHEET);
+    sheet.addRow([
+      'ID výsledku',
+      'Původní list',
+      'Původní řádek',
+      'Soutěžící / hlídka',
+      'Oddíl / rozdělení',
+      'Skupina',
+      'Výsledek',
+      'Stav',
+      'Bez cut-off',
+      'S cut-off',
+      'Gauss s cut-off',
+      'Gauss otevřený cut-off',
+      CHOICE_HEADER,
+    ]);
+    for (const row of job.participants) {
+      const p = row.proposal;
+      const oldId = `${job.key}:${job.source.workbook.getWorksheet(row.sheet)!.id}:${row.row}`;
+      sheet.addRow([
+        oldId,
+        row.sheet,
+        row.row,
+        row.name,
+        row.troop,
+        row.group,
+        row.score,
+        row.status,
+        p.zlPointsNoCutoff,
+        p.zlPointsWithCutoff,
+        p.zlPointsGaussWithCutoff,
+        p.zlPointsGaussOpenCutoff,
+        p.zlPointsNoCutoff,
+      ]);
+    }
+    expect((await readSelections(job, await bytes(legacy))).size).toBe(job.participants.length);
+  });
+
+  it('rejects a missing category and duplicates across category sheets', async () => {
+    const { job } = await categoryTimeFixture();
+    const missing = proposalWorkbook(job);
+    missing.removeWorksheet('D8');
+    await expect(readSelections(job, await bytes(missing))).rejects.toThrow('chybí 4 výsledků');
+    const duplicate = proposalWorkbook(job);
+    duplicate.getWorksheet('D8')!.addRow(duplicate.getWorksheet('H8')!.getRow(2).values);
+    await expect(readSelections(job, await bytes(duplicate))).rejects.toThrow('dvakrát');
+  });
+
+  it('uses unique valid sheet names without merging groups when labels collide', async () => {
+    const { job } = await categoryTimeFixture();
+    const labels = [
+      'Kategorie / velmi dlouhý název pro test A',
+      'Kategorie : velmi dlouhý název pro test B',
+      'Jak vybrat pásma',
+      'jak vybrat pásma',
+    ];
+    const renamed: LeagueJob = {
+      ...job,
+      participants: job.participants.slice(0, 4).map((row, index) => ({ ...row, group: labels[index] })),
+    };
+    const proposal = proposalWorkbook(renamed);
+    expect(proposal.worksheets).toHaveLength(5);
+    expect(new Set(proposal.worksheets.map((sheet) => sheet.name.toLowerCase())).size).toBe(5);
+    expect(proposal.worksheets.every((sheet) => sheet.name.length <= 31)).toBe(true);
+    expect((await readSelections(renamed, await bytes(proposal))).size).toBe(4);
+  });
+});
+
+describe('anonymous band proposals', () => {
+  it('omits identities, source coordinates and source filename from all sheets including hidden content', async () => {
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('H8');
+    sheet.addRow(['Jméno', 'Oddíl', 'Body']);
+    sheet.addRow(['Soukromé jméno Alfa', 'Soukromý oddíl Gama', 100]);
+    sheet.addRow(['Soukromá hlídka Beta', 'Soukromý oddíl Delta', 50]);
+    sheet.getCell('B2').note = 'Soukromá poznámka';
+    const source = await readSource('Soukromý název souboru.xlsx', await bytes(workbook));
+    const job = await prepareJob(source, [guessMapping(source.workbook.worksheets[0])], settings);
+    const proposal = proposalWorkbook(job);
+    const saved = new ExcelJS.Workbook();
+    await saved.xlsx.load(await bytes(proposal));
+    const model = JSON.stringify(saved.model);
+    for (const value of [
+      'Soukromé jméno Alfa',
+      'Soukromá hlídka Beta',
+      'Soukromý oddíl Gama',
+      'Soukromý oddíl Delta',
+      'Soukromá poznámka',
+      source.name,
+      'Původní řádek',
+      'Původní list',
+      'Soutěžící / hlídka',
+      'Oddíl / rozdělení',
+    ])
+      expect(model).not.toContain(value);
+    const resultSheet = saved.getWorksheet('H8')!;
+    expect(resultSheet.columnCount).toBe(9);
+    expect(resultSheet.getColumn(1).hidden).toBe(true);
+    for (const participant of job.participants) expect(participant.id).toMatch(/^[a-f0-9]{64}$/);
+    expect(new Set(job.participants.map((row) => row.id)).size).toBe(2);
+    resultSheet.getCell('I2').value = 12;
+    resultSheet.getCell('I3').value = 4;
+    const first = resultSheet.getRow(2).values;
+    resultSheet.getRow(2).values = resultSheet.getRow(3).values;
+    resultSheet.getRow(3).values = first;
+    const selected = await readSelections(job, await bytes(saved));
+    const output = await finalWorkbook(job, selected);
+    expect(output.getWorksheet('H8')!.getCell('A2').value).toBe('Soukromé jméno Alfa');
+    expect(output.getWorksheet('H8')!.getCell('B2').value).toBe('Soukromý oddíl Gama');
+    expect(output.getWorksheet('H8')!.getCell('D2').value).toBe(12);
+    expect(output.getWorksheet('H8')!.getCell('D3').value).toBe(4);
+    expect(output.getWorksheet('ZL – oddíly')!.getCell('B2').value).toBe('Soukromý oddíl Gama');
   });
 });

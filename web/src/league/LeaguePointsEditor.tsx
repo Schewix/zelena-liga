@@ -1,6 +1,7 @@
 import { useState, type ChangeEvent } from 'react';
 import {
   cellText,
+  describeLeagueGroup,
   downloadWorkbook,
   finalWorkbook,
   guessMapping,
@@ -231,7 +232,7 @@ export default function LeaguePointsEditor() {
                         </label>
                       ))}
                       <label>
-                        Skupina bez sloupce Kategorie
+                        Kategorie z názvu listu / vlastní skupina
                         <input
                           value={mapping.group}
                           disabled={mapping.categoryColumn > 0}
@@ -265,10 +266,16 @@ export default function LeaguePointsEditor() {
                         </select>
                       </label>
                     </div>
+                    {!mapping.categoryColumn && !mapping.sexColumn && (
+                      <p>
+                        Samostatná skupina pro výpočet:{' '}
+                        <strong>{describeLeagueGroup(mapping.group.trim() || mapping.sheet)}</strong>.
+                      </p>
+                    )}
                     <p>
                       Stejná kategorie a pohlaví tvoří jednu skupinu i napříč listy. Bez kategorie rozhoduje
-                      název skupiny. Pro sloučení dívek a hochů nepoužívej sloupec Pohlaví a nastav stejnou
-                      skupinu.
+                      název původního listu nebo vlastní skupiny. H8 a D8 tak zůstávají oddělené i bez sloupců
+                      Kategorie a Pohlaví. Pro úmyslné sloučení nastav stejnou skupinu.
                     </p>
                     {previewRows.length > 0 &&
                       Number.isInteger(mapping.headerRow) &&
@@ -306,7 +313,7 @@ export default function LeaguePointsEditor() {
             <p className="league-note">
               DSQ/DNS = 0 bodů bez účasti, DNF = 1 bod. Nedokončené označ ve sloupci Stav nebo Výsledek.
               Smíšené hlídky zapiš v oddílu jako „Oddíl A=2; Oddíl B=1“; body se rozdělí v poměru 2:1. Názvy
-              oddílů sjednoť, případně je oprav v návrhu.
+              oddílů sjednoť v původním souboru před nahráním.
             </p>
             <button
               type="button"
@@ -328,6 +335,14 @@ export default function LeaguePointsEditor() {
       {job && (
         <fieldset disabled={busy} className="league-step">
           <legend>2. Návrhy pásem</legend>
+          <p>
+            Návrhy neobsahují jména soutěžících, názvy hlídek ani oddíly. Zůstanou jen kategorie, výsledky,
+            stav, návrhy bodů a anonymní ID pro zpětné přiřazení.
+          </p>
+          <p>
+            Export bude mít {groups.length} samostatných listů s návrhy, jeden pro každou skupinu. Pásma se
+            počítají uvnitř jednotlivých skupin.
+          </p>
           <p>
             Pásma mají 16, 12, 9, 6, 4, 2 a 1 bod. Export obsahuje čtyři varianty: bez cut-off, s cut-off a
             dvě gaussovské varianty. Cut-off omezuje vliv výrazně slabších výsledků; závodníci pod ním
@@ -354,7 +369,9 @@ export default function LeaguePointsEditor() {
                   const rows = job.participants.filter((row) => row.group === group);
                   return (
                     <tr key={group}>
-                      <th>{group}</th>
+                      <th scope="row" title={describeLeagueGroup(group)}>
+                        {group}
+                      </th>
                       <td>{rows.length}</td>
                       <td>{rows.filter((row) => row.status === 'finished').length}</td>
                       <td>{rows.filter((row) => row.status === 'DSQ' || row.status === 'DNS').length}</td>
@@ -370,7 +387,7 @@ export default function LeaguePointsEditor() {
             className="league-button"
             onClick={() =>
               void run(async () => {
-                await downloadWorkbook(proposalWorkbook(job), `${baseName}-navrhy-pasem.xlsx`);
+                await downloadWorkbook(proposalWorkbook(job), 'navrhy-pasem-zl.xlsx');
                 setMessage('Návrhy staženy. Uprav sloupec Vybrané body ZL a nahraj soubor v kroku 3.');
               })
             }
