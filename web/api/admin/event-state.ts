@@ -6,6 +6,7 @@ import { respond } from '../../api-lib/admin/eventState/respond.js';
 import { buildDefaultLockAtIso } from '../../api-lib/admin/eventState/time.js';
 import { isBoolean,normalizeText } from '../../api-lib/admin/eventState/validation.js';
 import { withLogging } from '../../api-lib/logger.js';
+import { handleStationTickets } from '../../api-lib/stationTickets.js';
 
 async function handler(req: any, res: any) {
   if (req.method === 'OPTIONS') {
@@ -15,6 +16,10 @@ async function handler(req: any, res: any) {
   if (req.method !== 'GET' && req.method !== 'POST') {
     res.setHeader('Allow', 'GET, POST');
     return res.status(405).json({ error: 'Method Not Allowed' });
+  }
+
+  if (req.query?.stationTickets === '1' || req.query?.stationTickets === 'true') {
+    return handleStationTickets(req, res);
   }
 
   const session = await requireCalcSession(req, res);

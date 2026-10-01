@@ -1,6 +1,5 @@
-import { requireStationSession } from '../api-lib/admin/eventState/auth.js';
-import { respond } from '../api-lib/admin/eventState/respond.js';
-import { withLogging } from '../api-lib/logger.js';
+import { requireStationSession } from './admin/eventState/auth.js';
+import { respond } from './admin/eventState/respond.js';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const TICKET_STATES = new Set(['waiting', 'serving', 'done']);
@@ -39,14 +38,10 @@ async function listTickets(supabaseAdmin: any, eventId: string, stationId: strin
   return supabaseAdmin.rpc('list_station_tickets', { p_event_id: eventId, p_station_id: stationId });
 }
 
+// Served from /api/admin/event-state?stationTickets=1 (Vercel Hobby limits the number of functions).
 // Shared queue of a station: every judge of the station reads and writes the same rows.
 // The upsert RPC keeps the row with the newest client_updated_at, so concurrent edits resolve last-write-wins.
-async function handler(req: any, res: any) {
-  if (req.method !== 'GET' && req.method !== 'POST') {
-    res.setHeader('Allow', 'GET, POST');
-    return res.status(405).json({ error: 'Method Not Allowed' });
-  }
-
+export async function handleStationTickets(req: any, res: any) {
   const session = await requireStationSession(req, res);
   if (!session) {
     return;
@@ -107,5 +102,3 @@ async function handler(req: any, res: any) {
   }
   return res.status(200).json({ tickets: data ?? [] });
 }
-
-export default withLogging('/api/station-tickets', handler);
