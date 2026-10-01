@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useMemo, useState } from 'react';
+import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import {
 deleteCommunity,
 fetchCommunity,
@@ -18,7 +18,7 @@ signOutCommunity,
 verifyCommunityEmail,
 type CommunitySession,
 } from '../../data/communityAuth';
-import { geocodeAddress, mapyComUrl, parseGpsInput } from '../../data/geocode';
+import { geocodeAddress, mapyComUrl, parseGpsInput, reverseGeocode } from '../../data/geocode';
 import { SiteShell } from '../layout/SiteShell';
 import { toTelHref } from '../shared/format';
 import { LodgingMap } from './LodgingMap';
@@ -63,6 +63,25 @@ function LodgingForm({
   const [saving, setSaving] = useState(false);
   const [address, setAddress] = useState('');
   const [searching, setSearching] = useState(false);
+  // Adresu doplňujeme z polohy jen tehdy, když ji vedoucí nezadal sám.
+  const pickedByAddress = useRef(false);
+
+  useEffect(() => {
+    if (!picked) return undefined;
+    if (pickedByAddress.current) {
+      pickedByAddress.current = false;
+      return undefined;
+    }
+    let active = true;
+    void reverseGeocode(picked).then((resolved) => {
+      if (active && resolved) {
+        setAddress(resolved);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [picked]);
 
   const handleLocate = async () => {
     const query = address.trim();
@@ -77,6 +96,7 @@ function LodgingForm({
     const found = await geocodeAddress(query);
     setSearching(false);
     if (found) {
+      pickedByAddress.current = true;
       onPick(found);
       setStatus(null);
     } else {

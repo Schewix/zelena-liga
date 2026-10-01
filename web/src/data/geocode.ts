@@ -53,6 +53,33 @@ export async function geocodeAddress(query: string): Promise<GeoPoint | null> {
   }
 }
 
+// Z polohy (GPS, klik do mapy) udělá čitelnou adresu, ať se v tipech neukazují jen souřadnice.
+export async function reverseGeocode(point: GeoPoint): Promise<string | null> {
+  try {
+    if (MAPY_API_KEY) {
+      const url = `https://api.mapy.cz/v1/rgeocode?lat=${point.lat}&lon=${point.lng}&lang=cs&limit=1&apikey=${MAPY_API_KEY}`;
+      const response = await fetch(url);
+      if (!response.ok) return null;
+      const payload = (await response.json()) as { items?: Array<{ name?: string; location?: string }> };
+      const item = payload.items?.[0];
+      if (!item?.name) return null;
+      return item.location && !item.name.includes(item.location) ? `${item.name}, ${item.location}` : item.name;
+    }
+    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&accept-language=cs&lat=${point.lat}&lon=${point.lng}`;
+    const response = await fetch(url);
+    if (!response.ok) return null;
+    const payload = (await response.json()) as { address?: Record<string, string> };
+    const a = payload.address;
+    if (!a) return null;
+    const street = [a.road, a.house_number].filter(Boolean).join(' ');
+    const town = a.village || a.town || a.city || a.hamlet;
+    const parts = [street, [a.postcode, town].filter(Boolean).join(' ')].filter(Boolean);
+    return parts.length > 0 ? parts.join(', ') : null;
+  } catch {
+    return null;
+  }
+}
+
 export function mapyComUrl(point: GeoPoint) {
   return `https://mapy.com/cs/zakladni?source=coor&id=${point.lng}%2C${point.lat}&x=${point.lng}&y=${point.lat}&z=16`;
 }
