@@ -126,20 +126,16 @@ function formatDate(value: string): string {
     .format(new Date(Date.UTC(year, month - 1, day)));
 }
 
-function pageHeading(title: string): string {
-  return title.replace(TITLE_SUFFIX, '');
+function truncateAtWord(value: string, max: number): string {
+  const text = value.replace(/\s+/g, ' ').trim();
+  if (text.length <= max) return text;
+  const cut = text.slice(0, max);
+  const lastSpace = cut.lastIndexOf(' ');
+  return `${(lastSpace > max * 0.6 ? cut.slice(0, lastSpace) : cut).replace(/[\s.,;:–-]+$/, '')}…`;
 }
 
-function organizationJsonLd(): Record<string, unknown> {
-  return {
-    '@context': 'https://schema.org',
-    '@type': 'Organization',
-    name: 'SPTO Brno – Zelená liga',
-    alternateName: SITE_NAME,
-    url: `${SITE_URL}/`,
-    logo: `${SITE_URL}/icon-512.png`,
-    description: DEFAULT_SEO.description,
-  };
+function pageHeading(title: string): string {
+  return title.replace(TITLE_SUFFIX, '');
 }
 
 function baseNav(): string {
@@ -154,7 +150,8 @@ function staticPage(path: string, title: string, description: string, extra = ''
     canonicalPath: path,
     robots: 'index,follow',
     bodyHtml: `<main><h1>${escapeHtml(pageHeading(title))}</h1><p>${escapeHtml(description)}</p>${extra}</main>${baseNav()}`,
-    jsonLd: [organizationJsonLd()],
+    // Organization a WebSite JSON-LD jsou už v šabloně index.html.
+    jsonLd: [],
   };
 }
 
@@ -191,7 +188,7 @@ export async function buildSeoPage(rawPath: string, deps: SeoDeps): Promise<SeoP
     const bodyText = article.body
       ? article.bodyFormat === 'html' ? htmlToText(article.body) : article.body
       : article.excerpt;
-    const description = (article.excerpt || bodyText).replace(/\s+/g, ' ').trim().slice(0, 300);
+    const description = truncateAtWord(article.excerpt || bodyText, 300);
     const image = article.coverImage?.url ?? undefined;
     return {
       status: 200,

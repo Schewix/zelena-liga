@@ -58,6 +58,21 @@ describe('seo prerender', () => {
     expect(html).toContain('"@type":"Article"');
   });
 
+  it('truncates long descriptions at a word boundary', async () => {
+    const long = Array.from({ length: 80 }, () => 'slovo').join(' ');
+    const page = await buildSeoPage('/clanky/dlouhy', {
+      ...deps,
+      loadArticle: async (slug) => ({ source: 'local', slug, title: 'T', excerpt: long, dateISO: '2026-01-01' }),
+    });
+    expect(page.description.endsWith('slovo…')).toBe(true);
+    expect(page.description.length).toBeLessThanOrEqual(301);
+  });
+
+  it('does not duplicate Organization JSON-LD already present in the template', async () => {
+    const page = await buildSeoPage('/souteze', deps);
+    expect(page.jsonLd).toHaveLength(0);
+  });
+
   it('returns 404 noindex for a missing article', async () => {
     const page = await buildSeoPage('/clanky/neexistuje', deps);
     expect(page.status).toBe(404);
