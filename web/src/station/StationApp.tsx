@@ -2087,7 +2087,8 @@ export function StationApp({
       .from('station_category_answers')
       .select('category, correct_answers')
       .eq('event_id', eventId)
-      .eq('station_id', stationId);
+      .eq('station_id', stationId)
+      .eq('option_count', targetAnswerOptionCount);
 
     if (error) {
       reportSupabaseError('station_category_answers.load', error, status);
@@ -2101,7 +2102,7 @@ export function StationApp({
       map[row.category] = row.correct_answers;
     });
     setCategoryAnswers(map);
-  }, [eventId, stationId, pushAlert, reportSupabaseError]);
+  }, [eventId, stationId, targetAnswerOptionCount, pushAlert, reportSupabaseError]);
 
   const loadStationPassages = useCallback(async () => {
     setStationPassageLoading(true);

@@ -222,6 +222,7 @@ function LiveMapDashboard({
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
   const [realtimeConnected, setRealtimeConnected] = useState(false);
   const [isMapFullscreen, setIsMapFullscreen] = useState(false);
+  const [mapImageRatio, setMapImageRatio] = useState<number | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(true);
   const [searchInput, setSearchInput] = useState('');
   const [searchResult, setSearchResult] = useState<PatrolSearchResult | null>(null);
@@ -799,7 +800,21 @@ function LiveMapDashboard({
 
             {mapReady ? (
               <div className="live-map-canvas">
-                <img src={eventMap?.image_url} alt="Mapa závodu" />
+                {/* Vrstva má přesně rozměr obrázku, aby se procentuální pozice značek vztahovaly k mapě, ne k okolnímu rámečku. */}
+                <div
+                  className="live-map-image-stage"
+                  style={mapImageRatio ? { aspectRatio: String(mapImageRatio), width: `min(100cqw, calc(100cqh * ${mapImageRatio}))` } : undefined}
+                >
+                <img
+                  src={eventMap?.image_url}
+                  alt="Mapa závodu"
+                  onLoad={(event) => {
+                    const { naturalWidth, naturalHeight } = event.currentTarget;
+                    if (naturalWidth > 0 && naturalHeight > 0) {
+                      setMapImageRatio(naturalWidth / naturalHeight);
+                    }
+                  }}
+                />
                 {stationsWithPosition.map((summary) => {
                   const position = summary.position;
                   if (!position) {
@@ -829,6 +844,7 @@ function LiveMapDashboard({
                     </button>
                   );
                 })}
+                </div>
               </div>
             ) : (
               <div className="live-map-empty">

@@ -53,11 +53,16 @@ vi.mock('../storage/localforage', () => {
 vi.mock('../supabaseClient', () => {
   const tableFactories = new Map<string, () => unknown>();
 
-  const selectEmpty = () => ({
-    eq: () => ({
-      eq: () => Promise.resolve({ data: [], error: null }),
-    }),
-  });
+  const selectEmpty = () => {
+    const result = Promise.resolve({ data: [], error: null });
+    const chain: any = {
+      eq: () => chain,
+      then: result.then.bind(result),
+      catch: result.catch.bind(result),
+      finally: result.finally.bind(result),
+    };
+    return chain;
+  };
 
   const listScores = () => ({
     eq: () => ({
@@ -529,11 +534,17 @@ function createCalcStationResult() {
 
 function createSelectResult<T>(data: T, error: unknown = null) {
   return {
-    select: () => ({
-      eq: () => ({
-        eq: () => Promise.resolve({ data, error }),
-      }),
-    }),
+    select: () => {
+      const result = Promise.resolve({ data, error });
+      // Any number of chained .eq() filters resolves to the same rows.
+      const chain: any = {
+        eq: () => chain,
+        then: result.then.bind(result),
+        catch: result.catch.bind(result),
+        finally: result.finally.bind(result),
+      };
+      return chain;
+    },
   };
 }
 

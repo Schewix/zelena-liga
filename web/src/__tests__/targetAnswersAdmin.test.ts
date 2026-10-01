@@ -36,7 +36,8 @@ describe('admin target answers', () => {
     expect(app.calls).toContainEqual(['stations', 'event_id', 'selected-event']);
     expect(app.calls).toContainEqual(['stations', 'code', 'T']);
     expect(app.calls).toContainEqual(['events', 'update', { target_answer_option_count: 4 }]);
-    expect(app.calls).toContainEqual(['station_category_answers', 'upsert', [{ event_id: 'selected-event', station_id: 'selected-calc-station', category: 'N', correct_answers: 'ABCDABCDABCD' }]]);
+    expect(app.calls).toContainEqual(['station_category_answers', 'upsert', [{ event_id: 'selected-event', station_id: 'selected-calc-station', category: 'N', correct_answers: 'ABCDABCDABCD', option_count: 4 }]]);
+    expect(app.calls).toContainEqual(['station_category_answers', 'option_count', 4]);
     expect(app.calls).toContainEqual(['station_category_answers', 'category', ['M', 'S', 'R']]);
     expect(app.res.json).toHaveBeenCalledWith(expect.objectContaining({ ok: true, answers: [expect.objectContaining({ category: 'N', correct_answers: 'ABCDABCDABCD' })] }));
   });

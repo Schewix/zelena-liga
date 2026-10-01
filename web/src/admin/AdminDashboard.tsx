@@ -77,6 +77,8 @@ export function AdminDashboard({
 
   const [answersForm, setAnswersForm] = useState<AnswersFormState>(() => createEmptyAnswers());
   const [answersSummary, setAnswersSummary] = useState<AnswersSummary>(() => createEmptySummary());
+  type AnswerRow = { category: string; correct_answers: string; updated_at: string | null; option_count?: number | null };
+  const [answersRows, setAnswersRows] = useState<AnswerRow[]>([]);
   const [answersLoading, setAnswersLoading] = useState(false);
   const [answersSaving, setAnswersSaving] = useState(false);
   const [answersError, setAnswersError] = useState<string | null>(null);
@@ -224,10 +226,23 @@ export function AdminDashboard({
     setAnswersError(null);
     try {
       const result = await postSetupAction('load_target_answers', { event_id: activeEventId });
-      const data = result.answers as Array<{ category: string; correct_answers: string; updated_at: string | null }>;
-      const form = createEmptyAnswers();
-      const summary = createEmptySummary();
-      (data ?? []).forEach((row) => {
+      setAnswersRows((result.answers ?? []) as AnswerRow[]);
+      return true;
+    } catch (error) {
+      setAnswersError(error instanceof Error ? error.message : 'Nepodařilo se načíst správné odpovědi.');
+      return false;
+    } finally {
+      setAnswersLoading(false);
+    }
+  }, [activeEventId, postSetupAction]);
+
+  // 3-option (A-C) and 4-option (A-D) variants keep separate answer sets; show the selected one.
+  useEffect(() => {
+    const form = createEmptyAnswers();
+    const summary = createEmptySummary();
+    answersRows
+      .filter((row) => (row.option_count === 3 ? 3 : 4) === answersTargetOptionCount)
+      .forEach((row) => {
         const category = typeof row.category === 'string' ? row.category.trim().toUpperCase() : '';
         if (!isCategoryKey(category)) {
           return;
@@ -239,17 +254,9 @@ export function AdminDashboard({
           updatedAt: row.updated_at ?? null,
         };
       });
-
-      setAnswersForm(form);
-      setAnswersSummary(summary);
-      return true;
-    } catch (error) {
-      setAnswersError(error instanceof Error ? error.message : 'Nepodařilo se načíst správné odpovědi.');
-      return false;
-    } finally {
-      setAnswersLoading(false);
-    }
-  }, [activeEventId, postSetupAction]);
+    setAnswersForm(form);
+    setAnswersSummary(summary);
+  }, [answersRows, answersTargetOptionCount]);
 
   const loadStationStats = useCallback(async () => {
     setStationLoading(true);

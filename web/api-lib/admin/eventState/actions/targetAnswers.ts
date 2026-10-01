@@ -34,22 +34,22 @@ export async function targetAnswers(db: any, payload: Record<string, unknown>, r
     if (settingsError) return respond(res, 500, 'Nepodařilo se uložit počet možností.', settingsError.message);
 
     const updates = CATEGORIES.filter((category) => answers[category] !== '').map((category) => ({
-      event_id: eventId, station_id: station.id, category, correct_answers: answers[category],
+      event_id: eventId, station_id: station.id, category, correct_answers: answers[category], option_count: optionCount,
     }));
     if (updates.length) {
-      const { error } = await db.from('station_category_answers').upsert(updates, { onConflict: 'event_id,station_id,category' });
+      const { error } = await db.from('station_category_answers').upsert(updates, { onConflict: 'event_id,station_id,category,option_count' });
       if (error) return respond(res, 500, 'Nepodařilo se uložit správné odpovědi.', error.message);
     }
     const deletions = CATEGORIES.filter((category) => answers[category] === '');
     if (deletions.length) {
       const { error } = await db.from('station_category_answers').delete()
-        .eq('event_id', eventId).eq('station_id', station.id).in('category', deletions);
+        .eq('event_id', eventId).eq('station_id', station.id).eq('option_count', optionCount).in('category', deletions);
       if (error) return respond(res, 500, 'Nepodařilo se vymazat prázdné kategorie.', error.message);
     }
   }
 
   const { data, error } = await db.from('station_category_answers')
-    .select('category, correct_answers, updated_at').eq('event_id', eventId).eq('station_id', station.id);
+    .select('category, correct_answers, updated_at, option_count').eq('event_id', eventId).eq('station_id', station.id);
   if (error) return respond(res, 500, 'Nepodařilo se načíst uložené odpovědi.', error.message);
   return res.status(200).json({ ok: true, answers: data ?? [] });
 }
