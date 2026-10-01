@@ -1,6 +1,7 @@
 import { handleSetupAction } from '../../api-lib/admin/eventState/actions.js';
 import { requireCalcSession } from '../../api-lib/admin/eventState/auth.js';
 import { loadSetupData } from '../../api-lib/admin/eventState/loadSetupData.js';
+import { loadStationOverview } from '../../api-lib/admin/eventState/loadStationOverview.js';
 import { respond } from '../../api-lib/admin/eventState/respond.js';
 import { buildDefaultLockAtIso } from '../../api-lib/admin/eventState/time.js';
 import { isBoolean,normalizeText } from '../../api-lib/admin/eventState/validation.js';
@@ -24,6 +25,11 @@ async function handler(req: any, res: any) {
   const { supabaseAdmin, eventId } = session;
 
   const setupMode = req.query?.setup === '1' || req.query?.setup === 'true';
+
+  if (req.method === 'GET' && (req.query?.stationOverview === '1' || req.query?.stationOverview === 'true')) {
+    const requestedEventId = normalizeText(req.query?.event_id) || eventId;
+    return loadStationOverview(supabaseAdmin, requestedEventId, res);
+  }
 
   if (req.method === 'GET' && setupMode) {
     return loadSetupData(supabaseAdmin, eventId, res);

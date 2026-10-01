@@ -261,33 +261,40 @@ export function AdminDashboard({
     setStationError(null);
     setMissingDialog(null);
 
-    const [stationsRes, passagesRes, patrolsRes] = await Promise.all([
-      supabase
-        .from('stations')
-        .select('id, code, name, is_closed, is_split, split_categories')
-        .eq('event_id', activeEventId)
-        .order('code'),
-      supabase
-        .from('station_passages')
-        .select('station_id, patrol_id, arrived_at, left_at, client_created_at, patrols(category, sex)')
-        .eq('event_id', activeEventId),
-      supabase
-        .from('patrols')
-        .select('id, category, sex, patrol_code, team_name, active')
-        .eq('event_id', activeEventId),
-    ]);
+    // Read via the admin API (service role): the browser's anon Supabase client is blocked by RLS.
+    type StationOverviewPayload = {
+      stations?: unknown[];
+      passages?: unknown[];
+      patrols?: unknown[];
+      tickets?: Array<{ station_id: string; state: 'waiting' | 'serving'; arrived_at: string | null }> | null;
+    };
+    let overview: StationOverviewPayload | null = null;
+    let overviewError: Error | null = null;
+    if (!API_BASE_URL || !accessToken) {
+      overviewError = new Error('Missing admin API configuration or token.');
+    } else {
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/admin/event-state?stationOverview=1&event_id=${encodeURIComponent(activeEventId)}`,
+          { headers: { Authorization: `Bearer ${accessToken}` } },
+        );
+        if (!response.ok) {
+          const body = await response.json().catch(() => null);
+          throw new Error(body?.error || `Station overview failed (${response.status})`);
+        }
+        overview = (await response.json()) as StationOverviewPayload;
+      } catch (error) {
+        overviewError = error instanceof Error ? error : new Error(String(error));
+      }
+    }
+    const stationsRes = { data: overview?.stations ?? [], error: overviewError };
+    const passagesRes = { data: overview?.passages ?? [], error: overviewError };
+    const patrolsRes = { data: overview?.patrols ?? [], error: overviewError };
+    const ticketsRes = { data: overview?.tickets ?? [], error: overview?.tickets === null ? new Error('tickets unavailable') : null };
 
     setStationLoading(false);
 
-    // Queue state is optional: a failure here must not hide passages.
-    const ticketsRes = await supabase
-      .from('station_tickets')
-      .select('station_id, state, arrived_at')
-      .eq('event_id', activeEventId)
-      .in('state', ['waiting', 'serving']);
-    if (ticketsRes.error) {
-      console.warn('Failed to load station queues', ticketsRes.error);
-    } else {
+    if (!ticketsRes.error) {
       const queues = new Map<string, { waiting: number; serving: number }>();
       const ticketRows = ((ticketsRes.data ?? []) as Array<{ station_id: string; state: 'waiting' | 'serving'; arrived_at: string | null }>);
       const waitingSince: number[] = [];
@@ -302,6 +309,8 @@ export function AdminDashboard({
       });
       setStationQueues(queues);
       setWaitingSinceMs(waitingSince);
+    } else if (overview) {
+      console.warn('Station queues unavailable');
     }
 
     if (stationsRes.error || passagesRes.error || patrolsRes.error) {
@@ -557,7 +566,7 @@ export function AdminDashboard({
       overdueNoFinishPatrols: 0,
       lastSyncAt: new Date().toISOString(),
     });
-  }, [activeEventId]);
+  }, [accessToken, activeEventId]);
 
   const handleOpenStationMissing = useCallback(
     (row: StationPassageRow, category: CategoryKey | 'TOTAL') => {
