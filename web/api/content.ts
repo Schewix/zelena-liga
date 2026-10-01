@@ -1,4 +1,5 @@
 import { handleAdminAfterparty } from '../api-lib/content/afterparty.js';
+import { handleCommunityAuth } from '../api-lib/content/communityAuth.js';
 import { handleCommunityDelete,handleCommunitySubmit,handlePublicCommunity } from '../api-lib/content/community.js';
 import { handleAdminAlbumTitles } from '../api-lib/content/albumTitles.js';
 import { handleAdminArticle,handleAdminArticles } from '../api-lib/content/articles/admin.js';
@@ -79,6 +80,10 @@ async function handler(req: any, res: any) {
   }
 
   if (segments[0] === 'community') {
+    if (segments[1] === 'auth' && segments[2]) {
+      await handleCommunityAuth(req, res, segments[2]);
+      return;
+    }
     if (segments[1] === 'lodging' || segments[1] === 'loans') {
       const kind = segments[1] === 'lodging' ? 'lodging' : 'loan';
       if (segments[2]) {

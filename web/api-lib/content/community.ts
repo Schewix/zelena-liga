@@ -1,4 +1,5 @@
 import { logger } from '../logger.js';
+import { authenticateCommunityRequest } from './communityAuth.js';
 import { getSupabaseAdminClient } from './supabaseAdmin.js';
 
 type LodgingRow = {
@@ -51,15 +52,6 @@ function isRateLimited(req: any) {
   recent.push(now);
   submissions.set(ip, recent);
   return false;
-}
-
-async function getRequestUserId(req: any): Promise<string | null> {
-  const header = req.headers?.authorization ?? req.headers?.Authorization;
-  const value = Array.isArray(header) ? header[0] : header;
-  const token = typeof value === 'string' && value.startsWith('Bearer ') ? value.slice(7).trim() : '';
-  if (!token) return null;
-  const { data, error } = await getSupabaseAdminClient().auth.getUser(token);
-  return error || !data.user ? null : data.user.id;
 }
 
 function readText(payload: Record<string, unknown>, key: string, max: number): string | null {
@@ -163,7 +155,7 @@ export async function handleCommunitySubmit(req: any, res: any, kind: 'lodging' 
   }
   const payload = (req.body && typeof req.body === 'object' ? req.body : {}) as Record<string, unknown>;
 
-  const ownerId = await getRequestUserId(req).catch(() => null);
+  const ownerId = await authenticateCommunityRequest(req).catch(() => null);
   if (!ownerId) {
     res.status(401).json({ error: 'Pro přidání tipu se nejdřív přihlas.' });
     return;
@@ -260,7 +252,7 @@ export async function handleCommunityDelete(req: any, res: any, kind: 'lodging' 
     return;
   }
   try {
-    const ownerId = await getRequestUserId(req);
+    const ownerId = await authenticateCommunityRequest(req);
     if (!ownerId) {
       res.status(401).json({ error: 'Pro smazání se nejdřív přihlas.' });
       return;

@@ -1,5 +1,4 @@
 import { type FormEvent, useEffect, useMemo, useState } from 'react';
-import type { Session } from '@supabase/supabase-js';
 import {
 deleteCommunity,
 fetchCommunity,
@@ -10,11 +9,14 @@ type LoanOffer,
 type LodgingTip,
 } from '../../data/community';
 import {
+changeCommunityPassword,
 getCommunitySession,
+loginCommunity,
 onCommunitySessionChange,
-sendCommunityCode,
+registerCommunity,
 signOutCommunity,
-verifyCommunityCode,
+verifyCommunityEmail,
+type CommunitySession,
 } from '../../data/communityAuth';
 import { geocodeAddress, mapyComUrl, parseGpsInput } from '../../data/geocode';
 import { SiteShell } from '../layout/SiteShell';
@@ -254,45 +256,114 @@ function LoanForm({ accessToken, onDone, onCancel }: { accessToken: string; onDo
   );
 }
 
+type AuthStep = 'login' | 'register' | 'verify' | 'change';
+
 function LoginPanel({ onCancel }: { onCancel: () => void }) {
+  const [step, setStep] = useState<AuthStep>('login');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [displayName, setDisplayName] = useState('');
   const [code, setCode] = useState('');
-  const [codeSent, setCodeSent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSend = async (event: FormEvent) => {
+  const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setBusy(true);
     setError(null);
-    const failure = await sendCommunityCode(email.trim());
-    setBusy(false);
-    if (failure) {
-      setError(failure);
+    const cleanEmail = email.trim();
+    let result;
+    if (step === 'login') {
+      result = await loginCommunity(cleanEmail, password);
+      if (!result.ok && result.code === 'must_change_password') {
+        setStep('change');
+        setError(null);
+        setBusy(false);
+        return;
+      }
+      if (!result.ok && result.code === 'unverified') {
+        setStep('verify');
+      }
+    } else if (step === 'register') {
+      result = await registerCommunity(cleanEmail, password, displayName.trim());
+      if (result.ok) {
+        setStep('verify');
+      } else if (result.code === 'exists') {
+        setStep('login');
+      }
+    } else if (step === 'verify') {
+      result = await verifyCommunityEmail(cleanEmail, code);
     } else {
-      setCodeSent(true);
+      result = await changeCommunityPassword(cleanEmail, password, newPassword);
+    }
+    setBusy(false);
+    if (!result.ok) {
+      setError(result.error);
     }
   };
 
-  const handleVerify = async (event: FormEvent) => {
-    event.preventDefault();
-    setBusy(true);
-    setError(null);
-    const failure = await verifyCommunityCode(email.trim(), code);
-    setBusy(false);
-    if (failure) {
-      setError(failure);
-    }
+  const titles: Record<AuthStep, string> = {
+    login: 'Přihlas se e-mailem a heslem. Stejné údaje používají rozhodčí v aplikaci.',
+    register: 'Vytvoř si účet. Pošleme ti e-mail s kódem pro ověření.',
+    verify: `Poslali jsme ti kód na ${email.trim()}. Opiš ho sem.`,
+    change: 'Máš dočasné heslo. Nastav si nové, pak se přihlásíš.',
+  };
+  const submitLabels: Record<AuthStep, string> = {
+    login: 'Přihlásit',
+    register: 'Zaregistrovat',
+    verify: 'Ověřit e-mail',
+    change: 'Změnit heslo',
   };
 
   return (
-    <form className="community-form" onSubmit={codeSent ? handleVerify : handleSend}>
-      <p className="community-hint">
-        {codeSent
-          ? `Poslali jsme ti kód na ${email.trim()}. Opiš ho sem.`
-          : 'Pro přidání tipu se přihlas e-mailem. Pošleme ti jednorázový kód, heslo nepotřebuješ.'}
-      </p>
-      {codeSent ? (
+    <form className="community-form" onSubmit={handleSubmit}>
+      <p className="community-hint">{titles[step]}</p>
+      {step !== 'verify' ? (
+        <label>
+          <span>E-mail</span>
+          <input
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            required
+            autoComplete="email"
+          />
+        </label>
+      ) : null}
+      {step === 'register' ? (
+        <label>
+          <span>Jméno</span>
+          <input value={displayName} onChange={(event) => setDisplayName(event.target.value)} required maxLength={120} autoComplete="name" />
+        </label>
+      ) : null}
+      {step === 'login' || step === 'register' || step === 'change' ? (
+        <label>
+          <span>{step === 'change' ? 'Dočasné heslo' : 'Heslo'}{step === 'register' ? ' (min. 8 znaků)' : ''}</span>
+          <input
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            required
+            minLength={step === 'register' ? 8 : undefined}
+            autoComplete={step === 'login' ? 'current-password' : step === 'change' ? 'current-password' : 'new-password'}
+          />
+        </label>
+      ) : null}
+      {step === 'change' ? (
+        <label>
+          <span>Nové heslo (min. 8 znaků)</span>
+          <input
+            type="password"
+            value={newPassword}
+            onChange={(event) => setNewPassword(event.target.value)}
+            required
+            minLength={8}
+            autoComplete="new-password"
+          />
+        </label>
+      ) : null}
+      {step === 'verify' ? (
         <label>
           <span>Kód z e-mailu</span>
           <input
@@ -304,33 +375,40 @@ function LoginPanel({ onCancel }: { onCancel: () => void }) {
             maxLength={10}
           />
         </label>
-      ) : (
-        <label>
-          <span>E-mail</span>
-          <input
-            type="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            required
-            autoComplete="email"
-          />
-        </label>
-      )}
+      ) : null}
       {error ? <p className="community-status community-status--error">{error}</p> : null}
       <div className="community-form-actions">
         <button type="submit" className="homepage-cta primary" disabled={busy}>
-          {busy ? 'Chvilku…' : codeSent ? 'Přihlásit' : 'Poslat kód'}
+          {busy ? 'Chvilku…' : submitLabels[step]}
         </button>
         <button type="button" className="homepage-cta secondary" onClick={onCancel}>
           Zrušit
         </button>
       </div>
+      {step === 'login' ? (
+        <p className="community-hint">
+          Nemáš účet?{' '}
+          <button type="button" className="community-link-button" onClick={() => { setStep('register'); setError(null); }}>
+            Zaregistruj se
+          </button>
+          {' · '}
+          <a href="/aplikace/setonuv-zavod?reset=1">Zapomenuté heslo</a>
+        </p>
+      ) : null}
+      {step === 'register' ? (
+        <p className="community-hint">
+          Už máš účet?{' '}
+          <button type="button" className="community-link-button" onClick={() => { setStep('login'); setError(null); }}>
+            Přihlas se
+          </button>
+        </p>
+      ) : null}
     </form>
   );
 }
 
 export function CommunityPage() {
-  const [session, setSession] = useState<Session | null>(null);
+  const [session, setSession] = useState<CommunitySession | null>(() => getCommunitySession());
   const [loginOpen, setLoginOpen] = useState<'lodging' | 'loan' | null>(null);
   const [lodgings, setLodgings] = useState<LodgingTip[]>([]);
   const [loans, setLoans] = useState<LoanOffer[]>([]);
@@ -355,7 +433,6 @@ export function CommunityPage() {
   }, []);
 
   useEffect(() => {
-    void getCommunitySession().then(setSession);
     return onCommunitySessionChange(setSession);
   }, []);
 
@@ -370,7 +447,7 @@ export function CommunityPage() {
 
   const handleDelete = async (kind: 'lodging' | 'loans', id: string) => {
     if (!session || !window.confirm('Opravdu smazat?')) return;
-    const result = await deleteCommunity(kind, id, session.access_token);
+    const result = await deleteCommunity(kind, id, session.token);
     if (result.ok) {
       setNotice('Smazáno.');
       if (kind === 'lodging') setSelectedId(null);
@@ -433,7 +510,7 @@ export function CommunityPage() {
 
           {addingLodging && session ? (
             <LodgingForm
-              accessToken={session.access_token}
+              accessToken={session.token}
               picked={picked}
               onPick={setPicked}
               onCancel={() => {
@@ -527,7 +604,7 @@ export function CommunityPage() {
 
           {addingLoan && session ? (
             <LoanForm
-              accessToken={session.access_token}
+              accessToken={session.token}
               onCancel={() => setAddingLoan(false)}
               onDone={() => {
                 setAddingLoan(false);

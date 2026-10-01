@@ -1,45 +1,90 @@
-import { createClient, type Session } from '@supabase/supabase-js';
+const STORAGE_KEY = 'zl-community-session';
 
-const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const anon = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+export type CommunityUser = { id: string; email: string; displayName: string };
+export type CommunitySession = { token: string; expiresAt: string; user: CommunityUser };
 
-// Samostatný klient s vlastním úložištěm, ať se nepere s přihlášením rozhodčích.
-const client =
-  url && anon
-    ? createClient(url, anon, {
-        auth: {
-          persistSession: true,
-          autoRefreshToken: true,
-          detectSessionInUrl: false,
-          storageKey: 'zl-community-auth',
-        },
-      })
-    : null;
+type AuthResult =
+  | { ok: true; session: CommunitySession | null }
+  | { ok: false; error: string; code?: string };
 
-export async function getCommunitySession(): Promise<Session | null> {
-  if (!client) return null;
-  const { data } = await client.auth.getSession();
-  return data.session;
+const listeners = new Set<(session: CommunitySession | null) => void>();
+let current: CommunitySession | null = null;
+let loaded = false;
+
+function load(): CommunitySession | null {
+  if (loaded) return current;
+  loaded = true;
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const parsed = raw ? (JSON.parse(raw) as CommunitySession) : null;
+    current = parsed && new Date(parsed.expiresAt).getTime() > Date.now() ? parsed : null;
+  } catch {
+    current = null;
+  }
+  return current;
 }
 
-export function onCommunitySessionChange(callback: (session: Session | null) => void) {
-  if (!client) return () => undefined;
-  const { data } = client.auth.onAuthStateChange((_event, session) => callback(session));
-  return () => data.subscription.unsubscribe();
+function store(session: CommunitySession | null) {
+  current = session;
+  loaded = true;
+  try {
+    if (session) window.localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+    else window.localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Bez úložiště zůstane přihlášení jen do zavření stránky.
+  }
+  listeners.forEach((listener) => listener(session));
 }
 
-export async function sendCommunityCode(email: string): Promise<string | null> {
-  if (!client) return 'Přihlášení není dostupné.';
-  const { error } = await client.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
-  return error ? 'Kód se nepodařilo odeslat. Zkontroluj e-mail a zkus to za chvíli.' : null;
+export function getCommunitySession() {
+  return load();
 }
 
-export async function verifyCommunityCode(email: string, token: string): Promise<string | null> {
-  if (!client) return 'Přihlášení není dostupné.';
-  const { error } = await client.auth.verifyOtp({ email, token: token.trim(), type: 'email' });
-  return error ? 'Kód není platný nebo vypršel.' : null;
+export function onCommunitySessionChange(listener: (session: CommunitySession | null) => void) {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
 }
+
+async function post(action: string, body: Record<string, unknown>): Promise<AuthResult> {
+  try {
+    const response = await fetch(`/api/content/community/auth/${action}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const payload = (await response.json().catch(() => null)) as
+      | (Partial<CommunitySession> & { error?: string; code?: string })
+      | null;
+    if (!response.ok) {
+      return { ok: false, error: payload?.error || 'Něco se nepovedlo, zkus to prosím znovu.', code: payload?.code };
+    }
+    if (payload?.token && payload.user && payload.expiresAt) {
+      const session = { token: payload.token, expiresAt: payload.expiresAt, user: payload.user };
+      store(session);
+      return { ok: true, session };
+    }
+    return { ok: true, session: null };
+  } catch {
+    return { ok: false, error: 'Spojení se nepodařilo, zkontroluj připojení.' };
+  }
+}
+
+export const registerCommunity = (email: string, password: string, displayName: string) =>
+  post('register', { email, password, displayName });
+export const verifyCommunityEmail = (email: string, code: string) => post('verify', { email, code });
+export const loginCommunity = (email: string, password: string) => post('login', { email, password });
+export const changeCommunityPassword = (email: string, password: string, newPassword: string) =>
+  post('change-password', { email, password, newPassword });
 
 export async function signOutCommunity() {
-  await client?.auth.signOut();
+  const session = load();
+  store(null);
+  if (session) {
+    await fetch('/api/content/community/auth/logout', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${session.token}` },
+    }).catch(() => undefined);
+  }
 }
