@@ -19,12 +19,22 @@ export function SponsorsPage() {
             statutární město Brno a Ministerstvo školství, mládeže a tělovýchovy (MŠMT).
           </p>
           <div className="sponsors-logos" aria-label="Loga podporovatelů">
-            <div className="sponsors-logo">
+            <a
+              className="sponsors-logo"
+              href="https://www.jmk.cz"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               <img src={southMoravianRegionLogo} alt="Jihomoravský kraj" width="1093" height="262" />
-            </div>
-            <div className="sponsors-logo">
+            </a>
+            <a
+              className="sponsors-logo"
+              href="https://www.brno.cz"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               <img src={brnoLogo} alt="Statutární město Brno" width="1526" height="687" />
-            </div>
+            </a>
           </div>
           <p>
             Způsob pomoci si můžete vybrat sami: finanční příspěvek, materiální dar nebo

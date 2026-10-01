@@ -226,6 +226,7 @@ function LiveMapDashboard({
   const [searchInput, setSearchInput] = useState('');
   const [searchResult, setSearchResult] = useState<PatrolSearchResult | null>(null);
   const stageRef = useRef<HTMLElement | null>(null);
+  const mapWrapRef = useRef<HTMLElement | null>(null);
   const detailPanelRef = useRef<HTMLElement | null>(null);
   const loadInFlight = useRef(false);
 
@@ -437,6 +438,43 @@ function LiveMapDashboard({
       void supabase.removeChannel(channel);
     };
   }, [eventId]);
+
+  // Real browser fullscreen for the map; where the API is unavailable (e.g. iPhone Safari) fall back to a CSS overlay.
+  const toggleMapFullscreen = useCallback(async () => {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen().catch(() => undefined);
+      return;
+    }
+    if (isMapFullscreen) {
+      setIsMapFullscreen(false);
+      return;
+    }
+    const element = mapWrapRef.current;
+    if (element?.requestFullscreen) {
+      try {
+        await element.requestFullscreen();
+        return;
+      } catch {
+        // fall through to the overlay
+      }
+    }
+    setIsMapFullscreen(true);
+  }, [isMapFullscreen]);
+
+  useEffect(() => {
+    const syncFullscreen = () => setIsMapFullscreen(document.fullscreenElement === mapWrapRef.current);
+    const closeOverlay = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !document.fullscreenElement) {
+        setIsMapFullscreen(false);
+      }
+    };
+    document.addEventListener('fullscreenchange', syncFullscreen);
+    window.addEventListener('keydown', closeOverlay);
+    return () => {
+      document.removeEventListener('fullscreenchange', syncFullscreen);
+      window.removeEventListener('keydown', closeOverlay);
+    };
+  }, []);
 
   const patrolById = useMemo(() => new Map(patrols.map((patrol) => [patrol.id, patrol] as const)), [patrols]);
 
@@ -740,7 +778,7 @@ function LiveMapDashboard({
           <button
             type="button"
             className="live-map-button live-map-button--secondary"
-            onClick={() => setIsMapFullscreen((current) => !current)}
+            onClick={() => void toggleMapFullscreen()}
           >
             {isMapFullscreen ? 'Konec fullscreen' : 'Fullscreen mapy'}
           </button>
@@ -753,7 +791,7 @@ function LiveMapDashboard({
       <main className="live-map-main">
         {error ? <p className="live-map-error">{error}</p> : null}
         <section ref={stageRef} className="live-map-stage">
-          <article className="live-map-map-wrap">
+          <article ref={mapWrapRef} className="live-map-map-wrap">
             <header className="live-map-map-head">
               <h2>Mapa závodu</h2>
               <p>Klikni na stanoviště pro živý detail fronty a průchodů.</p>

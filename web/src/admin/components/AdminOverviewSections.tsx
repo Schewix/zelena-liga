@@ -7,6 +7,7 @@ import {
 } from '../adminSections';
 import { supabase } from '../../supabaseClient';
 import { API_BASE_URL } from '../apiConfig';
+import { loadMapData } from '../../liveMap/api';
 
 type DashboardSectionProps = {
   eventLoading: boolean;
@@ -253,6 +254,7 @@ export function AdminLiveOverviewSection({
 type LiveMapSectionProps = {
   eventId: string;
   mapRoute: string;
+  accessToken: string | null;
 };
 
 type AdminLiveMapRow = {
@@ -292,7 +294,7 @@ function clampPercent(value: number) {
   return value;
 }
 
-export function AdminLiveMapSection({ eventId, mapRoute }: LiveMapSectionProps) {
+export function AdminLiveMapSection({ eventId, mapRoute, accessToken }: LiveMapSectionProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [stationMarkers, setStationMarkers] = useState<AdminLiveMapMarker[]>([]);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -302,33 +304,32 @@ export function AdminLiveMapSection({ eventId, mapRoute }: LiveMapSectionProps) 
 
     const loadPreview = async () => {
       setPreviewLoading(true);
-      const [mapRes, stationRes, positionRes] = await Promise.all([
-        supabase
-          .from('event_maps')
-          .select('image_url')
-          .eq('event_id', eventId)
-          .maybeSingle(),
-        supabase
-          .from('stations')
-          .select('id,code,name')
-          .eq('event_id', eventId),
-        supabase
-          .from('station_map_positions')
-          .select('station_id,x_percent,y_percent')
-          .eq('event_id', eventId),
-      ]);
-
-      if (canceled) {
-        return;
-      }
-
-      if (mapRes.error || stationRes.error || positionRes.error) {
-        console.error('Failed to load admin live map preview', mapRes.error, stationRes.error, positionRes.error);
+      let data: {
+        event_maps?: AdminLiveMapRow[];
+        stations?: AdminLiveMapStationRow[];
+        station_map_positions?: AdminLiveMapPositionRow[];
+      };
+      try {
+        if (!accessToken) throw new Error('Chybí přístupový token.');
+        data = await loadMapData('load_live_map', accessToken, eventId);
+      } catch (loadError) {
+        if (canceled) {
+          return;
+        }
+        console.error('Failed to load admin live map preview', loadError);
         setPreviewUrl(null);
         setStationMarkers([]);
         setPreviewLoading(false);
         return;
       }
+
+      if (canceled) {
+        return;
+      }
+
+      const mapRes = { data: data.event_maps?.[0] ?? null };
+      const stationRes = { data: data.stations ?? [] };
+      const positionRes = { data: data.station_map_positions ?? [] };
 
       const stationById = new Map(
         ((stationRes.data ?? []) as AdminLiveMapStationRow[])
@@ -368,7 +369,7 @@ export function AdminLiveMapSection({ eventId, mapRoute }: LiveMapSectionProps) 
     return () => {
       canceled = true;
     };
-  }, [eventId]);
+  }, [eventId, accessToken]);
 
   return (
     <section
@@ -468,217 +469,6 @@ export function AdminQueuesSection({ waiting, serving, waitingSinceMs }: AdminQu
   );
 }
 
-type PatrolsOverviewSectionProps = {
-  eventId: string;
-};
-
-type PatrolOverviewRow = {
-  id: string;
-  patrol_code: string | null;
-  team_name: string | null;
-  category: string | null;
-  sex: string | null;
-  active: boolean | null;
-};
-
-function normalizeUpper(value: string | null | undefined) {
-  return typeof value === 'string' ? value.trim().toUpperCase() : '';
-}
-
-function normalizeText(value: string | null | undefined) {
-  return typeof value === 'string' ? value.trim() : '';
-}
-
-export function AdminPatrolsOverviewSection({ eventId }: PatrolsOverviewSectionProps) {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [rows, setRows] = useState<PatrolOverviewRow[]>([]);
-  const [search, setSearch] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('ALL');
-  const [troopFilter, setTroopFilter] = useState('ALL');
-
-  useEffect(() => {
-    let canceled = false;
-
-    const loadPatrols = async () => {
-      setLoading(true);
-      setError(null);
-      const { data, error: loadError } = await supabase
-        .from('patrols')
-        .select('id, patrol_code, team_name, category, sex, active')
-        .eq('event_id', eventId)
-        .order('patrol_code', { ascending: true });
-
-      if (canceled) {
-        return;
-      }
-
-      setLoading(false);
-      if (loadError) {
-        setRows([]);
-        setError('Nepodařilo se načíst hlídky pro přehled filtrů.');
-        return;
-      }
-
-      setRows(((data ?? []) as PatrolOverviewRow[]).filter((row) => row.active !== false));
-    };
-
-    void loadPatrols();
-
-    return () => {
-      canceled = true;
-    };
-  }, [eventId]);
-
-  const categoryOptions = useMemo(() => {
-    const unique = new Set<string>();
-    rows.forEach((row) => {
-      const category = normalizeUpper(row.category);
-      const sex = normalizeUpper(row.sex);
-      const key = `${category}${sex}`;
-      if (key) {
-        unique.add(key);
-      }
-    });
-    return Array.from(unique).sort((a, b) => a.localeCompare(b, 'cs'));
-  }, [rows]);
-
-  const troopOptions = useMemo(() => {
-    const unique = new Set<string>();
-    rows.forEach((row) => {
-      const name = normalizeText(row.team_name);
-      if (name) {
-        unique.add(name);
-      }
-    });
-    return Array.from(unique).sort((a, b) => a.localeCompare(b, 'cs'));
-  }, [rows]);
-
-  const filteredRows = useMemo(() => {
-    const normalizedSearch = normalizeUpper(search);
-    return rows.filter((row) => {
-      const code = normalizeUpper(row.patrol_code);
-      const teamName = normalizeUpper(row.team_name);
-      const category = normalizeUpper(row.category);
-      const sex = normalizeUpper(row.sex);
-      const bracket = `${category}${sex}`;
-
-      if (categoryFilter !== 'ALL' && bracket !== categoryFilter) {
-        return false;
-      }
-
-      if (troopFilter !== 'ALL' && normalizeText(row.team_name) !== troopFilter) {
-        return false;
-      }
-
-      if (!normalizedSearch) {
-        return true;
-      }
-
-      return code.includes(normalizedSearch) || teamName.includes(normalizedSearch);
-    });
-  }, [categoryFilter, rows, search, troopFilter]);
-
-  const duplicateCodes = useMemo(() => {
-    const counts = new Map<string, number>();
-    rows.forEach((row) => {
-      const code = normalizeUpper(row.patrol_code);
-      if (!code) {
-        return;
-      }
-      counts.set(code, (counts.get(code) ?? 0) + 1);
-    });
-    return Array.from(counts.entries())
-      .filter(([, count]) => count > 1)
-      .map(([code]) => code)
-      .sort((a, b) => a.localeCompare(b, 'cs'));
-  }, [rows]);
-
-  return (
-    <section
-      id={toAdminSectionId('patrols')}
-      className="admin-card admin-card--section admin-section-block admin-section-block--patrols"
-    >
-      <header className="admin-card-header">
-        <div>
-          <h2>Hlídky a registrace</h2>
-          <p className="admin-card-subtitle">
-            Vyhledávání, filtrace, registrace a kontrola duplicit hlídek.
-          </p>
-        </div>
-      </header>
-      <div className="admin-placeholder-grid">
-        <div className="admin-placeholder-item">
-          <strong>Vyhledávání hlídek</strong>
-          <label className="admin-field" htmlFor="admin-patrol-overview-search">
-            <span>Zadej kód nebo název</span>
-            <input
-              id="admin-patrol-overview-search"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="např. NH-12 nebo Ještěrky"
-              autoComplete="off"
-            />
-          </label>
-          <span>
-            {loading ? 'Načítám hlídky…' : `${filteredRows.length} / ${rows.length} hlídek`}
-          </span>
-        </div>
-        <div className="admin-placeholder-item">
-          <strong>Filtr: kategorie</strong>
-          <label className="admin-field" htmlFor="admin-patrol-overview-category">
-            <span>Vyber kategorii</span>
-            <select
-              id="admin-patrol-overview-category"
-              value={categoryFilter}
-              onChange={(event) => setCategoryFilter(event.target.value)}
-            >
-              <option value="ALL">Všechny kategorie</option>
-              {categoryOptions.map((category) => (
-                <option key={category} value={category}>
-                  {category}
-                </option>
-              ))}
-            </select>
-          </label>
-          <span>{categoryFilter === 'ALL' ? 'Bez omezení kategorie' : `Filtrované: ${categoryFilter}`}</span>
-        </div>
-        <div className="admin-placeholder-item">
-          <strong>Filtr: oddíl</strong>
-          <label className="admin-field" htmlFor="admin-patrol-overview-troop">
-            <span>Vyber oddíl</span>
-            <select
-              id="admin-patrol-overview-troop"
-              value={troopFilter}
-              onChange={(event) => setTroopFilter(event.target.value)}
-            >
-              <option value="ALL">Všechny oddíly</option>
-              {troopOptions.map((troop) => (
-                <option key={troop} value={troop}>
-                  {troop}
-                </option>
-              ))}
-            </select>
-          </label>
-          <span>{troopFilter === 'ALL' ? 'Bez omezení oddílu' : `Filtrované: ${troopFilter}`}</span>
-        </div>
-        <div className="admin-placeholder-item">
-          <strong>Kontrola duplicit</strong>
-          <span>
-            {duplicateCodes.length === 0
-              ? 'Bez duplicitních kódů'
-              : `Duplicitní kódy: ${duplicateCodes.length}`}
-          </span>
-          {duplicateCodes.length > 0 ? (
-            <small>{duplicateCodes.slice(0, 5).join(', ')}{duplicateCodes.length > 5 ? '…' : ''}</small>
-          ) : null}
-        </div>
-      </div>
-      {error ? <p className="admin-error">{error}</p> : null}
-    </section>
-  );
-}
-
 type StartPatrolRow = {
   id: string;
   patrol_code: string | null;
@@ -730,8 +520,6 @@ export function AdminStartsSection({ eventId, accessToken }: { eventId: string; 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [firstStart, setFirstStart] = useState('');
-  const [intervalMinutes, setIntervalMinutes] = useState(5);
 
   const callStartsApi = async (payload: Record<string, unknown>) => {
     if (!API_BASE_URL || !accessToken) {
@@ -755,7 +543,6 @@ export function AdminStartsSection({ eventId, accessToken }: { eventId: string; 
     let data: {
       patrols?: StartPatrolRow[];
       timings?: StartTimingRow[];
-      event_starts_at?: string | null;
     };
     try {
       data = await callStartsApi({ action: 'load_start_schedule' });
@@ -775,15 +562,10 @@ export function AdminStartsSection({ eventId, accessToken }: { eventId: string; 
       .filter((patrol) => patrol.active !== false)
       .map((patrol) => ({ ...patrol, startTime: timingByPatrol.get(patrol.id) ?? null }));
     setRows(nextRows);
-    const suggested = data.event_starts_at
-      ?? nextRows.find((row) => row.startTime)?.startTime
-      ?? null;
-    setFirstStart(toDateTimeLocalValue(suggested));
   };
 
   useEffect(() => {
     void loadSchedule();
-    // The start input should only be initialized when changing the event.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId]);
 
@@ -818,22 +600,6 @@ export function AdminStartsSection({ eventId, accessToken }: { eventId: string; 
     setMessage(success);
     await loadSchedule();
     return true;
-  };
-
-  const generateStarts = async () => {
-    const first = new Date(firstStart);
-    if (!firstStart || Number.isNaN(first.getTime()) || intervalMinutes < 1) {
-      setError('Zadej platný čas prvního startu a interval alespoň 1 minutu.');
-      return;
-    }
-    if (rows.length === 0) {
-      setError('Pro tento ročník nejsou žádné aktivní hlídky.');
-      return;
-    }
-    await saveStarts(rows.map((row, index) => ({
-      patrol_id: row.id,
-      start_time: new Date(first.getTime() + index * intervalMinutes * 60_000).toISOString(),
-    })), `Vygenerováno ${rows.length} startovních časů.`);
   };
 
   const updateOneStart = async (row: StartScheduleRow, value: string) => {
@@ -882,22 +648,11 @@ export function AdminStartsSection({ eventId, accessToken }: { eventId: string; 
         <div>
           <h2>Startovní časy</h2>
           <p className="admin-card-subtitle">
-            Generování, ruční úpravy, přesuny hlídek a export startovky.
+            Ruční úpravy startovních časů a export startovky.
           </p>
         </div>
       </header>
       <div className="admin-start-controls">
-        <label className="admin-field" htmlFor="admin-first-start">
-          <span>První start</span>
-          <input id="admin-first-start" type="datetime-local" value={firstStart} onChange={(event) => setFirstStart(event.target.value)} />
-        </label>
-        <label className="admin-field" htmlFor="admin-start-interval">
-          <span>Interval (minuty)</span>
-          <input id="admin-start-interval" type="number" min="1" value={intervalMinutes} onChange={(event) => setIntervalMinutes(Number(event.target.value))} />
-        </label>
-        <button type="button" className="admin-button admin-button--primary" disabled={loading || saving} onClick={() => void generateStarts()}>
-          {saving ? 'Ukládám…' : 'Vygenerovat starty'}
-        </button>
         <button type="button" className="admin-button admin-button--secondary" disabled={loading} onClick={() => void loadSchedule()}>
           {loading ? 'Načítám…' : 'Obnovit'}
         </button>

@@ -6,6 +6,7 @@ import AppFooter from '../components/AppFooter';
 import { env } from '../envVars';
 import { ADMIN_ROUTE_PREFIX } from '../routing';
 import { supabase } from '../supabaseClient';
+import { loadMapData as loadLiveMapData } from './api';
 import { createStationOrder } from './liveMapData';
 import type { EventMapRow, MapStation, StationMapPosition } from './types';
 import './SetonMapAdminApp.css';
@@ -223,24 +224,9 @@ function MapEditorDashboard({
     setMapError(null);
 
     try {
-      const [mapRes, positionRes] = await Promise.all([
-        supabase
-          .from('event_maps')
-          .select('id,event_id,image_url,created_at')
-          .eq('event_id', targetEventId)
-          .maybeSingle(),
-        supabase
-          .from('station_map_positions')
-          .select('id,event_id,station_id,x_percent,y_percent,created_at')
-          .eq('event_id', targetEventId),
-      ]);
-
-      if (mapRes.error) {
-        throw mapRes.error;
-      }
-      if (positionRes.error) {
-        throw positionRes.error;
-      }
+      const data = await loadLiveMapData('load_live_map', accessToken, targetEventId);
+      const mapRes = { data: ((data.event_maps ?? [])[0] ?? null) as EventMapRow | null };
+      const positionRes = { data: (data.station_map_positions ?? []) as StationMapPosition[] };
 
       const loadedPositions = ((positionRes.data ?? []) as StationMapPosition[]).map((position) => ({
         ...position,
@@ -261,7 +247,7 @@ function MapEditorDashboard({
     } finally {
       setMapLoading(false);
     }
-  }, []);
+  }, [accessToken]);
 
   useEffect(() => {
     void loadSetupData();
