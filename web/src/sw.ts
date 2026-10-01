@@ -2,7 +2,7 @@
 import { precacheAndRoute, cleanupOutdatedCaches } from 'workbox-precaching';
 import { clientsClaim } from 'workbox-core';
 import { registerRoute } from 'workbox-routing';
-import { CacheFirst, NetworkFirst, StaleWhileRevalidate } from 'workbox-strategies';
+import { CacheFirst, NetworkFirst, NetworkOnly, StaleWhileRevalidate } from 'workbox-strategies';
 
 declare let self: ServiceWorkerGlobalScope & { __WB_MANIFEST: any };
 // Minimal typings for Background Sync – not available in all TS lib.dom versions
@@ -46,6 +46,12 @@ registerRoute(
     url.origin === self.location.origin &&
     url.pathname.startsWith('/api/content/articles'),
   new StaleWhileRevalidate({ cacheName: `${CACHE_VERSION}-public-articles` })
+);
+
+// The shared station queue must never be served from cache (a stale list hides other judges' changes).
+registerRoute(
+  ({ url }) => url.pathname.startsWith('/api/') && url.searchParams.has('stationTickets'),
+  new NetworkOnly()
 );
 
 registerRoute(

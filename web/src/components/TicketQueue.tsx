@@ -8,6 +8,7 @@ interface TicketQueueProps {
   onRemove?: (id: string) => boolean | Promise<boolean>;
   heartbeat: number;
   onBackToSummary?: () => void;
+  syncStatus?: { lastOkAt: number | null; error: string | null };
 }
 
 function formatDuration(ms: number) {
@@ -27,7 +28,7 @@ function slaClass(ms: number) {
 }
 
 const TicketQueue = forwardRef<HTMLElement, TicketQueueProps>(function TicketQueue(
-  { tickets, onChangeState, onRemove, heartbeat, onBackToSummary }: TicketQueueProps,
+  { tickets, onChangeState, onRemove, heartbeat, onBackToSummary, syncStatus }: TicketQueueProps,
   ref,
 ) {
   const grouped = useMemo(() => {
@@ -61,6 +62,17 @@ const TicketQueue = forwardRef<HTMLElement, TicketQueueProps>(function TicketQue
             čekání / obsluha hlídky, stav se počítá z časových značek (zvládne offline i restart), čekání se měří
             ve formátu HH:MM.
           </p>
+          {syncStatus ? (
+            <p className="card-subtitle" role="status">
+              {syncStatus.error
+                ? `⚠ Sdílení fronty s ostatními rozhodčími nefunguje (${syncStatus.error}).${
+                    syncStatus.lastOkAt ? ` Naposledy ok: ${new Date(syncStatus.lastOkAt).toLocaleTimeString('cs-CZ')}.` : ''
+                  }`
+                : syncStatus.lastOkAt
+                  ? `Fronta je sdílená s ostatními rozhodčími, naposledy aktualizováno ${new Date(syncStatus.lastOkAt).toLocaleTimeString('cs-CZ')}.`
+                  : 'Načítám sdílenou frontu…'}
+            </p>
+          ) : null}
         </div>
       </header>
 

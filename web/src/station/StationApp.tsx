@@ -2028,6 +2028,7 @@ export function StationApp({
   const latestAccessTokenRef = useRef<string | null>(auth.tokens.accessToken);
   latestAccessTokenRef.current = auth.tokens.accessToken;
   const ticketExchangeInFlightRef = useRef(false);
+  const [ticketSyncStatus, setTicketSyncStatus] = useState<{ lastOkAt: number | null; error: string | null }>({ lastOkAt: null, error: null });
   const exchangeTickets = useCallback(async () => {
     if (!enableTicketQueue || !STATION_TICKETS_URL || ticketExchangeInFlightRef.current) {
       return;
@@ -2051,8 +2052,10 @@ export function StationApp({
         setTickets(merged.tickets);
         void saveTickets(stationId, merged.tickets);
       }
+      setTicketSyncStatus({ lastOkAt: Date.now(), error: null });
     } catch (error) {
       console.warn('Ticket sync failed', error);
+      setTicketSyncStatus((previous) => ({ ...previous, error: error instanceof Error ? error.message : 'chyba' }));
     } finally {
       ticketExchangeInFlightRef.current = false;
     }
@@ -4303,6 +4306,7 @@ showCompletedSummary={showCompletedSummary}
               ref={ticketQueueRef}
               tickets={tickets}
               heartbeat={tick}
+              syncStatus={ticketSyncStatus}
               onChangeState={handleTicketStateChange}
               onRemove={handleRemoveTicket}
               onBackToSummary={scrollToSummary}

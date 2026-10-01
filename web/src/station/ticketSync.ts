@@ -97,10 +97,11 @@ export async function exchangeStationTickets(params: {
   const dirty = tickets.filter((ticket) => synced.get(ticket.patrolId) !== ticketSyncKey(ticket));
   const headers = { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' };
   const response = dirty.length
-    ? await fetch(url, { method: 'POST', headers, body: JSON.stringify({ tickets: dirty.map(toPayload) }) })
-    : await fetch(url, { headers });
+    ? await fetch(url, { method: 'POST', headers, cache: 'no-store', body: JSON.stringify({ tickets: dirty.map(toPayload) }) })
+    : await fetch(url, { headers, cache: 'no-store' });
   if (!response.ok) {
-    throw new Error(`Station tickets request failed (${response.status})`);
+    const detail = await response.json().then((body: { error?: string }) => body?.error).catch(() => undefined);
+    throw new Error(`${response.status}${detail ? ` ${detail}` : ''}`);
   }
   dirty.forEach((ticket) => synced.set(ticket.patrolId, ticketSyncKey(ticket)));
   const body = (await response.json()) as { tickets?: RemoteTicketRow[] };
