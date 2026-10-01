@@ -14,6 +14,7 @@ type LodgingRow = {
   review: string | null;
   leader_name: string;
   leader_contact: string;
+  owner_id: string | null;
   created_at: string;
 };
 
@@ -25,6 +26,7 @@ type LoanRow = {
   place: string | null;
   leader_name: string;
   leader_contact: string;
+  owner_id: string | null;
   created_at: string;
 };
 
@@ -49,6 +51,15 @@ function isRateLimited(req: any) {
   recent.push(now);
   submissions.set(ip, recent);
   return false;
+}
+
+async function getRequestUserId(req: any): Promise<string | null> {
+  const header = req.headers?.authorization ?? req.headers?.Authorization;
+  const value = Array.isArray(header) ? header[0] : header;
+  const token = typeof value === 'string' && value.startsWith('Bearer ') ? value.slice(7).trim() : '';
+  if (!token) return null;
+  const { data, error } = await getSupabaseAdminClient().auth.getUser(token);
+  return error || !data.user ? null : data.user.id;
 }
 
 function readText(payload: Record<string, unknown>, key: string, max: number): string | null {
@@ -92,6 +103,7 @@ function toPublicLodging(row: LodgingRow) {
     review: row.review,
     leaderName: row.leader_name,
     leaderContact: row.leader_contact,
+    ownerId: row.owner_id,
     createdAt: row.created_at,
   };
 }
@@ -105,6 +117,7 @@ function toPublicLoan(row: LoanRow) {
     place: row.place,
     leaderName: row.leader_name,
     leaderContact: row.leader_contact,
+    ownerId: row.owner_id,
     createdAt: row.created_at,
   };
 }
@@ -149,6 +162,12 @@ export async function handleCommunitySubmit(req: any, res: any, kind: 'lodging' 
     return;
   }
   const payload = (req.body && typeof req.body === 'object' ? req.body : {}) as Record<string, unknown>;
+
+  const ownerId = await getRequestUserId(req).catch(() => null);
+  if (!ownerId) {
+    res.status(401).json({ error: 'Pro přidání tipu se nejdřív přihlas.' });
+    return;
+  }
 
   // Skryté pole, které vyplní jen robot — tvářit se, že vše proběhlo, ať se nezkouší dál.
   if (typeof payload.company === 'string' && payload.company.trim().length > 0) {
@@ -201,6 +220,7 @@ export async function handleCommunitySubmit(req: any, res: any, kind: 'lodging' 
         review: readText(payload, 'review', 2000),
         leader_name: leaderName,
         leader_contact: leaderContact,
+        owner_id: ownerId,
       });
       if (error) {
         throw error;
@@ -222,6 +242,7 @@ export async function handleCommunitySubmit(req: any, res: any, kind: 'lodging' 
       place: readText(payload, 'place', 160),
       leader_name: leaderName,
       leader_contact: leaderContact,
+      owner_id: ownerId,
     });
     if (error) {
       throw error;
@@ -230,5 +251,37 @@ export async function handleCommunitySubmit(req: any, res: any, kind: 'lodging' 
   } catch (error) {
     logger.error('[api/content/community] submit failed', error);
     res.status(500).json({ error: 'Uložení se nepodařilo, zkus to prosím znovu.' });
+  }
+}
+
+export async function handleCommunityDelete(req: any, res: any, kind: 'lodging' | 'loan', id: string) {
+  if (req.method !== 'DELETE') {
+    res.status(405).json({ error: 'Method not allowed' });
+    return;
+  }
+  try {
+    const ownerId = await getRequestUserId(req);
+    if (!ownerId) {
+      res.status(401).json({ error: 'Pro smazání se nejdřív přihlas.' });
+      return;
+    }
+    const table = kind === 'lodging' ? 'content_lodging_tips' : 'content_equipment_loans';
+    const { data, error } = await getSupabaseAdminClient()
+      .from(table)
+      .delete()
+      .eq('id', id)
+      .eq('owner_id', ownerId)
+      .select('id');
+    if (error) {
+      throw error;
+    }
+    if (!data || data.length === 0) {
+      res.status(404).json({ error: 'Záznam nenalezen, nebo ho nemůžeš smazat.' });
+      return;
+    }
+    res.status(200).json({ ok: true });
+  } catch (error) {
+    logger.error('[api/content/community] delete failed', error);
+    res.status(500).json({ error: 'Smazání se nepodařilo, zkus to prosím znovu.' });
   }
 }

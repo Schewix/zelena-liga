@@ -1,5 +1,5 @@
 import { handleAdminAfterparty } from '../api-lib/content/afterparty.js';
-import { handleCommunitySubmit,handlePublicCommunity } from '../api-lib/content/community.js';
+import { handleCommunityDelete,handleCommunitySubmit,handlePublicCommunity } from '../api-lib/content/community.js';
 import { handleAdminAlbumTitles } from '../api-lib/content/albumTitles.js';
 import { handleAdminArticle,handleAdminArticles } from '../api-lib/content/articles/admin.js';
 import { handleAdminArticleImages } from '../api-lib/content/articles/images.js';
@@ -73,12 +73,13 @@ async function handler(req: any, res: any) {
   }
 
   if (segments[0] === 'community') {
-    if (segments[1] === 'lodging') {
-      await handleCommunitySubmit(req, res, 'lodging');
-      return;
-    }
-    if (segments[1] === 'loans') {
-      await handleCommunitySubmit(req, res, 'loan');
+    if (segments[1] === 'lodging' || segments[1] === 'loans') {
+      const kind = segments[1] === 'lodging' ? 'lodging' : 'loan';
+      if (segments[2]) {
+        await handleCommunityDelete(req, res, kind, segments[2]);
+      } else {
+        await handleCommunitySubmit(req, res, kind);
+      }
       return;
     }
     await handlePublicCommunity(req, res);

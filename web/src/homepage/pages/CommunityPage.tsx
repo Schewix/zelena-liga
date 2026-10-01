@@ -1,5 +1,7 @@
 import { type FormEvent, useEffect, useMemo, useState } from 'react';
+import type { Session } from '@supabase/supabase-js';
 import {
+deleteCommunity,
 fetchCommunity,
 LOAN_KIND_LABELS,
 submitCommunity,
@@ -7,6 +9,13 @@ type LoanKind,
 type LoanOffer,
 type LodgingTip,
 } from '../../data/community';
+import {
+getCommunitySession,
+onCommunitySessionChange,
+sendCommunityCode,
+signOutCommunity,
+verifyCommunityCode,
+} from '../../data/communityAuth';
 import { geocodeAddress, mapyComUrl, parseGpsInput } from '../../data/geocode';
 import { SiteShell } from '../layout/SiteShell';
 import { toTelHref } from '../shared/format';
@@ -36,11 +45,13 @@ function ContactLine({ name, contact }: { name: string; contact: string }) {
 }
 
 function LodgingForm({
+  accessToken,
   picked,
   onPick,
   onDone,
   onCancel,
 }: {
+  accessToken: string;
   picked: { lat: number; lng: number } | null;
   onPick: (point: { lat: number; lng: number }) => void;
   onDone: () => void;
@@ -83,7 +94,7 @@ function LodgingForm({
     body.lat = picked.lat;
     body.lng = picked.lng;
     setSaving(true);
-    const result = await submitCommunity('lodging', body);
+    const result = await submitCommunity('lodging', body, accessToken);
     setSaving(false);
     if (result.ok) {
       onDone();
@@ -176,7 +187,7 @@ function LodgingForm({
   );
 }
 
-function LoanForm({ onDone, onCancel }: { onDone: () => void; onCancel: () => void }) {
+function LoanForm({ accessToken, onDone, onCancel }: { accessToken: string; onDone: () => void; onCancel: () => void }) {
   const [status, setStatus] = useState<Status>(null);
   const [saving, setSaving] = useState(false);
 
@@ -184,7 +195,7 @@ function LoanForm({ onDone, onCancel }: { onDone: () => void; onCancel: () => vo
     event.preventDefault();
     const body = Object.fromEntries(new FormData(event.currentTarget).entries());
     setSaving(true);
-    const result = await submitCommunity('loans', body);
+    const result = await submitCommunity('loans', body, accessToken);
     setSaving(false);
     if (result.ok) {
       onDone();
@@ -243,7 +254,84 @@ function LoanForm({ onDone, onCancel }: { onDone: () => void; onCancel: () => vo
   );
 }
 
+function LoginPanel({ onCancel }: { onCancel: () => void }) {
+  const [email, setEmail] = useState('');
+  const [code, setCode] = useState('');
+  const [codeSent, setCodeSent] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSend = async (event: FormEvent) => {
+    event.preventDefault();
+    setBusy(true);
+    setError(null);
+    const failure = await sendCommunityCode(email.trim());
+    setBusy(false);
+    if (failure) {
+      setError(failure);
+    } else {
+      setCodeSent(true);
+    }
+  };
+
+  const handleVerify = async (event: FormEvent) => {
+    event.preventDefault();
+    setBusy(true);
+    setError(null);
+    const failure = await verifyCommunityCode(email.trim(), code);
+    setBusy(false);
+    if (failure) {
+      setError(failure);
+    }
+  };
+
+  return (
+    <form className="community-form" onSubmit={codeSent ? handleVerify : handleSend}>
+      <p className="community-hint">
+        {codeSent
+          ? `Poslali jsme ti kód na ${email.trim()}. Opiš ho sem.`
+          : 'Pro přidání tipu se přihlas e-mailem. Pošleme ti jednorázový kód, heslo nepotřebuješ.'}
+      </p>
+      {codeSent ? (
+        <label>
+          <span>Kód z e-mailu</span>
+          <input
+            value={code}
+            onChange={(event) => setCode(event.target.value)}
+            required
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            maxLength={10}
+          />
+        </label>
+      ) : (
+        <label>
+          <span>E-mail</span>
+          <input
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            required
+            autoComplete="email"
+          />
+        </label>
+      )}
+      {error ? <p className="community-status community-status--error">{error}</p> : null}
+      <div className="community-form-actions">
+        <button type="submit" className="homepage-cta primary" disabled={busy}>
+          {busy ? 'Chvilku…' : codeSent ? 'Přihlásit' : 'Poslat kód'}
+        </button>
+        <button type="button" className="homepage-cta secondary" onClick={onCancel}>
+          Zrušit
+        </button>
+      </div>
+    </form>
+  );
+}
+
 export function CommunityPage() {
+  const [session, setSession] = useState<Session | null>(null);
+  const [loginOpen, setLoginOpen] = useState<'lodging' | 'loan' | null>(null);
   const [lodgings, setLodgings] = useState<LodgingTip[]>([]);
   const [loans, setLoans] = useState<LoanOffer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -266,6 +354,43 @@ export function CommunityPage() {
     void reload();
   }, []);
 
+  useEffect(() => {
+    void getCommunitySession().then(setSession);
+    return onCommunitySessionChange(setSession);
+  }, []);
+
+  // Po přihlášení rovnou otevřít formulář, který vedoucí chtěl.
+  useEffect(() => {
+    if (session && loginOpen) {
+      if (loginOpen === 'lodging') setAddingLodging(true);
+      else setAddingLoan(true);
+      setLoginOpen(null);
+    }
+  }, [session, loginOpen]);
+
+  const handleDelete = async (kind: 'lodging' | 'loans', id: string) => {
+    if (!session || !window.confirm('Opravdu smazat?')) return;
+    const result = await deleteCommunity(kind, id, session.access_token);
+    if (result.ok) {
+      setNotice('Smazáno.');
+      if (kind === 'lodging') setSelectedId(null);
+      void reload();
+    } else {
+      setNotice(result.error);
+    }
+  };
+
+  const startAdding = (kind: 'lodging' | 'loan') => {
+    setNotice(null);
+    if (!session) {
+      setLoginOpen(kind);
+    } else if (kind === 'lodging') {
+      setAddingLodging(true);
+    } else {
+      setAddingLoan(true);
+    }
+  };
+
   const selected = useMemo(() => lodgings.find((item) => item.id === selectedId) ?? null, [lodgings, selectedId]);
 
   return (
@@ -273,6 +398,14 @@ export function CommunityPage() {
       <main className="homepage-main homepage-single community-page" aria-labelledby="community-heading">
         <h1 id="community-heading">Tipy od vedoucích</h1>
         {notice ? <p className="community-status community-status--success">{notice}</p> : null}
+        {session ? (
+          <p className="community-hint">
+            Přihlášen jako {session.user.email}.{' '}
+            <button type="button" className="community-link-button" onClick={() => void signOutCommunity()}>
+              Odhlásit
+            </button>
+          </p>
+        ) : null}
 
         <section className="homepage-card" aria-labelledby="lodging-heading">
           <div className="community-section-header">
@@ -280,15 +413,8 @@ export function CommunityPage() {
               <h2 id="lodging-heading">Tipy na ubytování</h2>
               <p>Kde jsme přespali a jak se nám tam líbilo. Vyplnit stačí jen to, co chceš sdílet.</p>
             </div>
-            {!addingLodging ? (
-              <button
-                type="button"
-                className="homepage-cta primary"
-                onClick={() => {
-                  setAddingLodging(true);
-                  setNotice(null);
-                }}
-              >
+            {!addingLodging && loginOpen !== 'lodging' ? (
+              <button type="button" className="homepage-cta primary" onClick={() => startAdding('lodging')}>
                 Přidat tip
               </button>
             ) : null}
@@ -303,8 +429,11 @@ export function CommunityPage() {
             onPick={setPicked}
           />
 
-          {addingLodging ? (
+          {loginOpen === 'lodging' ? <LoginPanel onCancel={() => setLoginOpen(null)} /> : null}
+
+          {addingLodging && session ? (
             <LodgingForm
+              accessToken={session.access_token}
               picked={picked}
               onPick={setPicked}
               onCancel={() => {
@@ -345,6 +474,15 @@ export function CommunityPage() {
                 </p>
               ) : null}
               <ContactLine name={selected.leaderName} contact={selected.leaderContact} />
+              {session && selected.ownerId === session.user.id ? (
+                <button
+                  type="button"
+                  className="homepage-cta secondary community-delete"
+                  onClick={() => void handleDelete('lodging', selected.id)}
+                >
+                  Smazat můj tip
+                </button>
+              ) : null}
             </article>
           ) : null}
 
@@ -378,22 +516,18 @@ export function CommunityPage() {
               <h2 id="loans-heading">Půjčování her a materiálu</h2>
               <p>Co můžeš půjčit ostatním oddílům. Domluva probíhá napřímo s vedoucím.</p>
             </div>
-            {!addingLoan ? (
-              <button
-                type="button"
-                className="homepage-cta primary"
-                onClick={() => {
-                  setAddingLoan(true);
-                  setNotice(null);
-                }}
-              >
+            {!addingLoan && loginOpen !== 'loan' ? (
+              <button type="button" className="homepage-cta primary" onClick={() => startAdding('loan')}>
                 Nabídnout
               </button>
             ) : null}
           </div>
 
-          {addingLoan ? (
+          {loginOpen === 'loan' ? <LoginPanel onCancel={() => setLoginOpen(null)} /> : null}
+
+          {addingLoan && session ? (
             <LoanForm
+              accessToken={session.access_token}
               onCancel={() => setAddingLoan(false)}
               onDone={() => {
                 setAddingLoan(false);
@@ -418,6 +552,15 @@ export function CommunityPage() {
                   </div>
                   {loan.description ? <p>{loan.description}</p> : null}
                   <ContactLine name={loan.leaderName} contact={loan.leaderContact} />
+                  {session && loan.ownerId === session.user.id ? (
+                    <button
+                      type="button"
+                      className="homepage-cta secondary community-delete"
+                      onClick={() => void handleDelete('loans', loan.id)}
+                    >
+                      Smazat moji nabídku
+                    </button>
+                  ) : null}
                 </div>
               ))}
             </div>
