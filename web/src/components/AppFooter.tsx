@@ -51,7 +51,7 @@ export default function AppFooter({ className, variant = 'minimal', onSecretTrig
         </p>
         <p>
           Web je pod správou{' '}
-          <a href="https://jmkop.pionyr.cz/" target="_blank" rel="noreferrer">
+          <a href="https://jihomoravsky.pionyr.cz/" target="_blank" rel="noreferrer">
             Jihomoravské krajské organizace Pionýra (JMKOP)
           </a>
           .
