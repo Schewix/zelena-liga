@@ -10,6 +10,7 @@ import { assignJudge } from './actions/assignJudge.js';
 import { upsertPatrolProfile } from './actions/upsertPatrolProfile.js';
 import { cleanupIncompletePatrols } from './actions/cleanupIncompletePatrols.js';
 import { createPatrols } from './actions/createPatrols.js';
+import { importPatrols } from './actions/importPatrols.js';
 import { clearEventPoints } from './actions/clearEventPoints.js';
 
 export async function handleSetupAction(
@@ -46,6 +47,8 @@ export async function handleSetupAction(
   if (action === 'cleanup_incomplete_patrols') { return cleanupIncompletePatrols(supabaseAdmin, currentEventId, payload, res); }
 
   if (action === 'create_patrols') { return createPatrols(supabaseAdmin, currentEventId, payload, res); }
+
+  if (action === 'import_patrols') { return importPatrols(supabaseAdmin, payload, res); }
 
   if (action === 'clear_event_points') { return clearEventPoints(supabaseAdmin, currentEventId, payload, res); }
 

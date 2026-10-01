@@ -56,6 +56,7 @@ import { normalizeText } from './shared/text';
 import { AnswersFormState,AnswersSummary,AuthenticatedState,CategoryToggleState,DisqualifyPatrol,EventState,JudgeTaskPresetKey,MissingDialogState,PatrolCountsState,PatrolStartsState,PatrolSummary,SelectedSetupAssignmentSummary,SetupAssignmentRow,SetupEventRow,SetupEventScoringConfig,SetupJudgeRow,SetupStationOrderPayload,SetupStationOrderRow,SetupStationRow,StationPassageRow } from './types';
 import { TargetAnswersSection } from './answers/TargetAnswersSection';
 import { EventScoringSettings } from './setup/EventScoringSettings';
+import { PatrolImportSection } from './patrolImport/PatrolImportSection';
 import { StationPassagesSection } from './overview/StationPassagesSection';
 
 export function AdminDashboard({
@@ -2236,6 +2237,19 @@ setupSaving={setupSaving}
               </div>
             </div>
           ) : null}
+
+          <CollapsibleSetupSection title="Nahrát informace o hlídkách">
+            <PatrolImportSection
+              eventId={selectedSetupEventId}
+              eventName={selectedSetupEvent?.name ?? ''}
+              troopOptions={setupTroopOptions}
+              disabled={setupSaving || !selectedSetupEventId}
+              postSetupAction={postSetupAction}
+              onImported={async () => {
+                await Promise.all([loadSetupData(), loadStationStats()]);
+              }}
+            />
+          </CollapsibleSetupSection>
 
           <CollapsibleSetupSection title="Vytvoření hlídek">
             <p className="admin-card-subtitle">
