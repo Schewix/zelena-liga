@@ -1,3 +1,4 @@
+import { withLogging, logger } from '../../api-lib/logger.js';
 import { createClient } from '@supabase/supabase-js';
 import { pbkdf2 as pbkdf2Callback, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
@@ -151,7 +152,7 @@ function respond(
   detail?: string,
 ): ReturnType<any['status']> {
   if (status >= 500) {
-    console.error('[api/auth/login]', message, detail ? { detail } : {});
+    logger.error('[api/auth/login]', message, detail ? { detail } : {});
   }
   return res.status(status).json(detail ? { error: message, detail } : { error: message });
 }
@@ -268,12 +269,12 @@ async function verifyPassword(hash: string, password: string) {
     const { default: argon2 } = await import('argon2');
     return argon2.verify(hash, password);
   } catch (error) {
-    console.error('[api/auth/login] argon2 unavailable', error);
+    logger.error('[api/auth/login] argon2 unavailable', error);
     throw new Error('argon2-unavailable');
   }
 }
 
-export default async function handler(req: any, res: any) {
+async function handler(req: any, res: any) {
   try {
     applyCors(res);
 
@@ -500,3 +501,5 @@ export default async function handler(req: any, res: any) {
     return respond(res, 500, 'Internal server error', formatError(error));
   }
 }
+
+export default withLogging('/api/auth/login', handler);

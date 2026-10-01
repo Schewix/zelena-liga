@@ -1,3 +1,4 @@
+import { withLogging, logger } from '../../api-lib/logger.js';
 import { createClient } from '@supabase/supabase-js';
 import { hashPassword, generateTemporaryPassword } from '../../api-lib/auth/password-utils.js';
 
@@ -157,7 +158,7 @@ async function sendResetEmail(to: string, password: string, displayName?: string
   return messageId;
 }
 
-export default async function handler(req: any, res: any) {
+async function handler(req: any, res: any) {
   applyCors(res);
 
   if (req.method === 'OPTIONS') {
@@ -184,7 +185,7 @@ export default async function handler(req: any, res: any) {
     .maybeSingle();
 
   if (judgeError) {
-    console.error('Failed to load judge for reset', judgeError);
+    logger.error('Failed to load judge for reset', judgeError);
     return res.status(500).json({ error: 'DB error' });
   }
 
@@ -208,7 +209,7 @@ export default async function handler(req: any, res: any) {
     .eq('id', judge.id);
 
   if (updateError) {
-    console.error('Failed to rotate password', updateError);
+    logger.error('Failed to rotate password', updateError);
     return res.status(500).json({ error: 'Failed to reset password' });
   }
 
@@ -216,6 +217,7 @@ export default async function handler(req: any, res: any) {
     const targetEmail = judge.email && typeof judge.email === 'string' ? judge.email : normalizedEmail;
     const displayName = judge.display_name && typeof judge.display_name === 'string' ? judge.display_name : undefined;
     const messageId = await sendResetEmail(targetEmail, temporaryPassword, displayName);
+    logger.info('email.password_reset.accepted', { message_id: messageId });
 
     const { data: assignment } = await supabase
       .from('judge_assignments')
@@ -244,10 +246,10 @@ export default async function handler(req: any, res: any) {
     });
 
     if (eventError) {
-      console.error('Failed to record onboarding event', eventError);
+      logger.error('Failed to record onboarding event', eventError);
     }
   } catch (error) {
-    console.error('Failed to send reset email', error);
+    logger.error('Failed to send reset email', error);
     await supabase
       .from('judges')
       .update({
@@ -261,3 +263,5 @@ export default async function handler(req: any, res: any) {
 
   return res.status(200).json({ success: true });
 }
+
+export default withLogging('/api/auth/reset-password', handler);

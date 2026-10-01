@@ -1,3 +1,4 @@
+import { withLogging, logger } from '../api-lib/logger.js';
 import { createClient } from '@supabase/supabase-js';
 import jwt from 'jsonwebtoken';
 import { getAuthConfig } from '../api-lib/authTokens.js';
@@ -123,7 +124,7 @@ function getSupabaseAdminConfig() {
 
 function respond(res: any, status: number, message: string, detail?: string) {
   if (status >= 500) {
-    console.error('[api/station-score-review]', message, detail ? { detail } : {});
+    logger.error('[api/station-score-review]', message, detail ? { detail } : {});
   }
   return res.status(status).json(detail ? { error: message, detail } : { error: message });
 }
@@ -199,7 +200,7 @@ function ensurePayload(body: unknown): ReviewPayload | null {
   return payload;
 }
 
-export default async function handler(req: any, res: any) {
+async function handler(req: any, res: any) {
   if (req.method === 'OPTIONS') {
     return res.status(204).end();
   }
@@ -383,7 +384,7 @@ export default async function handler(req: any, res: any) {
   if (!orderRes.error && orderRes.data) {
     stationOrder = normalizeStationOrderPayload(orderRes.data);
   } else if (orderRes.error) {
-    console.warn('[api/station-score-review] failed to load event station order', {
+    logger.warn('[api/station-score-review] failed to load event station order', {
       eventId: body.event_id,
       detail: orderRes.error.message,
     });
@@ -396,3 +397,5 @@ export default async function handler(req: any, res: any) {
     station_order: stationOrder,
   });
 }
+
+export default withLogging('/api/station-score-review', handler);

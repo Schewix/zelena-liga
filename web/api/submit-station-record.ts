@@ -1,3 +1,4 @@
+import { withLogging, logger } from '../api-lib/logger.js';
 import { createClient } from '@supabase/supabase-js';
 import jwt from 'jsonwebtoken';
 import { createHash } from 'node:crypto';
@@ -201,7 +202,7 @@ function logError(context: string, error: unknown) {
           details: (error as { details?: string }).details,
         }
       : { message: String(error) };
-  console.error(`[api/submit-station-record] ${context}`, safeError);
+  logger.error(`[api/submit-station-record] ${context}`, safeError);
 }
 
 function formatErrorDetail(error: unknown): string {
@@ -217,7 +218,7 @@ function respond(
   detail?: string,
 ): ReturnType<any['status']> {
   if (status >= 500) {
-    console.error('[api/submit-station-record]', message, detail ? { detail } : {});
+    logger.error('[api/submit-station-record]', message, detail ? { detail } : {});
   }
   return res.status(status).json(detail ? { error: message, detail } : { error: message });
 }
@@ -328,7 +329,7 @@ type TokenClaims = {
   type?: string;
 };
 
-export default async function handler(req: any, res: any) {
+async function handler(req: any, res: any) {
   if (req.method === 'OPTIONS') {
     return res.status(204).end();
   }
@@ -648,3 +649,5 @@ export default async function handler(req: any, res: any) {
     mirrored_patrol_ids: targetPatrolIds.length > 1 ? targetPatrolIds : undefined,
   });
 }
+
+export default withLogging('/api/submit-station-record', handler);

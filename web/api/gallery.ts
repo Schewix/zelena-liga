@@ -1,3 +1,4 @@
+import { withLogging, logger } from '../api-lib/logger.js';
 import type { drive_v3 } from 'googleapis';
 import { fetchScriptItems, hasGalleryScript } from '../api-lib/galleryScript.js';
 import {
@@ -104,12 +105,12 @@ async function fetchAlbumOverrides(): Promise<Map<string, string>> {
     const supabase = getSupabaseAdminClient();
     const { data, error } = await supabase.from('content_gallery_albums').select('folder_id,title');
     if (error) {
-      console.error('[api/gallery] failed to load overrides', error);
+      logger.error('[api/gallery] failed to load overrides', error);
       return new Map();
     }
     return new Map((data ?? []).map((row: { folder_id: string; title: string }) => [row.folder_id, row.title]));
   } catch (error) {
-    console.warn('[api/gallery] overrides unavailable', error);
+    logger.warn('[api/gallery] overrides unavailable', error);
     return new Map();
   }
 }
@@ -579,7 +580,7 @@ async function handleAlbums(req: any, res: any) {
       await handleR2Albums(req, res, r2Config);
       return;
     } catch (error) {
-      console.warn('[api/gallery] failed to load albums from Cloudflare R2', error);
+      logger.warn('[api/gallery] failed to load albums from Cloudflare R2', error);
       if (r2Config.sourceMode === 'r2') {
         res.status(500).json({ error: 'Failed to load albums from Cloudflare R2.' });
         return;
@@ -708,7 +709,7 @@ async function handleAlbums(req: any, res: any) {
     }
     res.status(200).json(payload);
   } catch (error) {
-    console.error('[api/gallery] failed to load albums', error);
+    logger.error('[api/gallery] failed to load albums', error);
     res.status(500).json({ error: 'Failed to load albums from Google Drive.' });
   }
 }
@@ -729,7 +730,7 @@ async function handleAlbum(req: any, res: any, folderId: string) {
         return;
       }
     } catch (error) {
-      console.warn('[api/gallery] failed to load album from Cloudflare R2', error);
+      logger.warn('[api/gallery] failed to load album from Cloudflare R2', error);
       if (r2Config.sourceMode === 'r2') {
         res.status(500).json({ error: 'Failed to load album from Cloudflare R2.' });
         return;
@@ -806,15 +807,17 @@ async function handleAlbum(req: any, res: any, folderId: string) {
     setCache(cacheKey, payload);
     res.status(200).json(payload);
   } catch (error) {
-    console.error('[api/gallery] failed to load album', error);
+    logger.error('[api/gallery] failed to load album', error);
     res.status(500).json({ error: 'Failed to load album from Google Drive.' });
   }
 }
 
-export default async function handler(req: any, res: any) {
+async function handler(req: any, res: any) {
   const folderId = typeof req.query.folderId === 'string' ? req.query.folderId : '';
   if (folderId) {
     return handleAlbum(req, res, folderId);
   }
   return handleAlbums(req, res);
 }
+
+export default withLogging('/api/gallery', handler);

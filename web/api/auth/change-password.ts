@@ -1,3 +1,4 @@
+import { withLogging, logger } from '../../api-lib/logger.js';
 import { createClient } from '@supabase/supabase-js';
 import { pbkdf2 as pbkdf2Callback, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
@@ -104,7 +105,7 @@ async function verifyPassword(hash: string, password: string) {
     const { default: argon2 } = await import('argon2');
     return argon2.verify(hash, password);
   } catch (error) {
-    console.error('[api/auth/change-password] argon2 unavailable', error);
+    logger.error('[api/auth/change-password] argon2 unavailable', error);
     throw new Error('argon2-unavailable');
   }
 }
@@ -124,7 +125,7 @@ function getSupabaseAdminConfig() {
   return { supabaseUrl, serviceRoleKey };
 }
 
-export default async function handler(req: any, res: any) {
+async function handler(req: any, res: any) {
   const cors = {
     'access-control-allow-origin': '*',
     'access-control-allow-methods': 'POST, OPTIONS',
@@ -212,7 +213,7 @@ export default async function handler(req: any, res: any) {
   const { data: judge, error: fetchError } = await query.maybeSingle();
 
   if (fetchError) {
-    console.error('Failed to load judge for password change', fetchError);
+    logger.error('Failed to load judge for password change', fetchError);
     return res.status(500).json({ error: 'DB error' });
   }
 
@@ -247,7 +248,7 @@ export default async function handler(req: any, res: any) {
     .eq('id', judge.id);
 
   if (updateError) {
-    console.error('Failed to update password', updateError);
+    logger.error('Failed to update password', updateError);
     return res.status(500).json({ error: 'Failed to change password' });
   }
 
@@ -256,3 +257,5 @@ export default async function handler(req: any, res: any) {
     .setHeader('Access-Control-Allow-Origin', cors['access-control-allow-origin'])
     .json({ success: true });
 }
+
+export default withLogging('/api/auth/change-password', handler);

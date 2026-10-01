@@ -1,3 +1,4 @@
+import { withLogging } from '../../api-lib/logger.js';
 import { getDriveClient } from '../../api-lib/googleDrive.js';
 
 const CACHE_TTL_MS = 10 * 60 * 1000;
@@ -6,7 +7,7 @@ function applyCacheHeaders(res: any) {
   res.setHeader('Cache-Control', `public, s-maxage=${Math.floor(CACHE_TTL_MS / 1000)}`);
 }
 
-export default async function handler(req: any, res: any) {
+async function handler(req: any, res: any) {
   applyCacheHeaders(res);
   res.setHeader('Access-Control-Allow-Origin', '*');
 
@@ -38,3 +39,5 @@ export default async function handler(req: any, res: any) {
     res.status(500).json({ error: 'Failed to load image from Google Drive.' });
   }
 }
+
+export default withLogging('/api/gallery/image', handler);

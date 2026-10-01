@@ -1,3 +1,4 @@
+import { withLogging, logger } from '../../api-lib/logger.js';
 import { createClient } from '@supabase/supabase-js';
 import jwt from 'jsonwebtoken';
 import { getAuthConfig } from '../../api-lib/authTokens.js';
@@ -29,7 +30,7 @@ function getSupabaseAdminConfig() {
 
 function respond(res: any, status: number, message: string, detail?: string) {
   if (status >= 500) {
-    console.error('[api/admin/patrol-disqualify]', message, detail ? { detail } : {});
+    logger.error('[api/admin/patrol-disqualify]', message, detail ? { detail } : {});
   }
   return res.status(status).json(detail ? { error: message, detail } : { error: message });
 }
@@ -169,7 +170,7 @@ async function requireCalcSession(req: any, res: any) {
   };
 }
 
-export default async function handler(req: any, res: any) {
+async function handler(req: any, res: any) {
   if (req.method === 'OPTIONS') {
     return res.status(204).end();
   }
@@ -231,3 +232,5 @@ export default async function handler(req: any, res: any) {
 
   return res.json({ ok: true });
 }
+
+export default withLogging('/api/admin/patrol-disqualify', handler);

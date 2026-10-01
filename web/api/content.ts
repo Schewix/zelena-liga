@@ -1,3 +1,4 @@
+import { withLogging, logger } from '../api-lib/logger.js';
 import {
   fetchPionyrArticleBySlug,
   fetchPionyrArticles,
@@ -718,7 +719,7 @@ async function loadAfterpartyAdminOrders(supabase: ReturnType<typeof getSupabase
         .from(AFTERPARTY_RECEIPTS_BUCKET)
         .createSignedUrl(order.receipt_path, 60 * 60);
       if (signedUrlError) {
-        console.error('[api/content/afterparty] failed to create signed URL', signedUrlError);
+        logger.error('[api/content/afterparty] failed to create signed URL', signedUrlError);
         return { ...order, receipt_signed_url: null };
       }
       return { ...order, receipt_signed_url: signedUrlData?.signedUrl ?? null };
@@ -739,7 +740,7 @@ async function handleAdminAfterparty(req: any, res: any, segments: string[]) {
       const orders = await loadAfterpartyAdminOrders(supabase);
       res.status(200).json({ orders });
     } catch (error) {
-      console.error('[api/content/admin/afterparty] failed to load orders', error);
+      logger.error('[api/content/admin/afterparty] failed to load orders', error);
       res.status(500).json({ error: 'Failed to load afterparty orders.' });
     }
     return;
@@ -858,7 +859,7 @@ async function handleAdminAfterparty(req: any, res: any, segments: string[]) {
 
       res.status(200).json({ ok: true, total_points: totalPoints });
     } catch (error) {
-      console.error('[api/content/admin/afterparty] failed to review order', error);
+      logger.error('[api/content/admin/afterparty] failed to review order', error);
       res.status(500).json({ error: 'Failed to review afterparty order.' });
     }
     return;
@@ -911,7 +912,7 @@ async function handleAdminAfterparty(req: any, res: any, segments: string[]) {
 
       res.status(200).json({ ok: true, deleted_receipts: receiptPaths.length });
     } catch (error) {
-      console.error('[api/content/admin/afterparty] failed to reset league', error);
+      logger.error('[api/content/admin/afterparty] failed to reset league', error);
       res.status(500).json({ error: 'Failed to reset afterparty league.' });
     }
     return;
@@ -1007,7 +1008,7 @@ async function fetchLocalArticleSummaries({
     .range(offset, offset + limit);
 
   if (error) {
-    console.error('[api/content] supabase error', error);
+    logger.error('[api/content] supabase error', error);
     throw error;
   }
 
@@ -1035,7 +1036,7 @@ async function handlePublicList(req: any, res: any) {
       nextOffset: hasMore ? offset + articles.length : null,
     });
   } catch (error) {
-    console.error('[api/content/articles] failed', error);
+    logger.error('[api/content/articles] failed', error);
     res.status(500).json({ error: 'Failed to load articles.' });
   }
 }
@@ -1070,7 +1071,7 @@ async function handlePublicDetail(req: any, res: any, slug: string) {
     }
     res.status(200).json({ article: mapPionyr(pionyrArticle) });
   } catch (error) {
-    console.error('[api/content/articles/[slug]] failed', error);
+    logger.error('[api/content/articles/[slug]] failed', error);
     res.status(500).json({ error: 'Failed to load article.' });
   }
 }
@@ -1119,7 +1120,7 @@ async function handlePublicSitemap(req: any, res: any) {
     }
     res.status(200).send(body);
   } catch (error) {
-    console.error('[api/content/sitemap] failed', error);
+    logger.error('[api/content/sitemap] failed', error);
     res.status(500).json({ error: 'Failed to load sitemap.' });
   }
 }
@@ -1197,7 +1198,7 @@ async function handleAdminImport(req: any, res: any) {
       .select('id,external_id,updated_at,synced_at')
       .eq('source', 'pionyr');
     if (existingError) {
-      console.error('[api/content/import] failed to load existing rows', existingError);
+      logger.error('[api/content/import] failed to load existing rows', existingError);
       res.status(500).json({
         error: 'Failed to load imported articles.',
         ...(includeErrorDetails ? { details: formatImportError(existingError) } : {}),
@@ -1228,7 +1229,7 @@ async function handleAdminImport(req: any, res: any) {
         .from('content_articles')
         .upsert(upserts, { onConflict: 'source,external_id' });
       if (upsertError) {
-        console.error('[api/content/import] failed to upsert rows', upsertError);
+        logger.error('[api/content/import] failed to upsert rows', upsertError);
         res.status(500).json({
           error: 'Failed to import articles.',
           ...(includeErrorDetails ? { details: formatImportError(upsertError) } : {}),
@@ -1250,7 +1251,7 @@ async function handleAdminImport(req: any, res: any) {
     if (deleteIds.length > 0) {
       const { error: deleteError } = await supabase.from('content_articles').delete().in('id', deleteIds);
       if (deleteError) {
-        console.error('[api/content/import] failed to delete stale rows', deleteError);
+        logger.error('[api/content/import] failed to delete stale rows', deleteError);
         res.status(500).json({
           error: 'Failed to clear imported articles.',
           ...(includeErrorDetails ? { details: formatImportError(deleteError) } : {}),
@@ -1267,7 +1268,7 @@ async function handleAdminImport(req: any, res: any) {
       deleted: deleteIds.length,
     });
   } catch (error) {
-    console.error('[api/content/import] failed', error);
+    logger.error('[api/content/import] failed', error);
     res.status(500).json({
       error: 'Failed to import articles.',
       ...(includeErrorDetails ? { details: formatImportError(error) } : {}),
@@ -1548,7 +1549,7 @@ async function handleAdminArticleImages(req: any, res: any) {
 
     res.status(200).json({ uploads });
   } catch (error) {
-    console.error('[api/content/admin/article-images] failed to prepare upload', error);
+    logger.error('[api/content/admin/article-images] failed to prepare upload', error);
     res.status(500).json({ error: 'Nepodařilo se připravit upload obrázků.' });
   }
 }
@@ -1701,7 +1702,7 @@ async function handlePublicDocuments(req: any, res: any) {
     }
     res.status(200).json({ documents: ((data ?? []) as DocumentRow[]).map(toPublicDocument) });
   } catch (error) {
-    console.error('[api/content/documents] failed', error);
+    logger.error('[api/content/documents] failed', error);
     res.status(500).json({ error: 'Failed to load documents.' });
   }
 }
@@ -1800,7 +1801,7 @@ async function handleAdminDocument(req: any, res: any, id: string) {
       const removal = await supabase.storage.from(CONTENT_DOCUMENTS_BUCKET).remove([filePath]);
       if (removal.error) {
         // Záznam je pryč, osiřelý soubor v bucketu nebrání dalšímu provozu.
-        console.error('[api/content/admin/documents] failed to remove file', removal.error);
+        logger.error('[api/content/admin/documents] failed to remove file', removal.error);
       }
     }
 
@@ -1892,7 +1893,7 @@ async function handleAdminDocumentUpload(req: any, res: any) {
 
     res.status(200).json({ uploads });
   } catch (error) {
-    console.error('[api/content/admin/document-upload] failed to prepare upload', error);
+    logger.error('[api/content/admin/document-upload] failed to prepare upload', error);
     res.status(500).json({ error: 'Nepodařilo se připravit upload souborů.' });
   }
 }
@@ -1970,7 +1971,7 @@ async function handlePublicSchedule(req: any, res: any) {
     }
     res.status(200).json({ events: ((data ?? []) as ScheduleEventRow[]).map(toPublicScheduleEvent) });
   } catch (error) {
-    console.error('[api/content/schedule] failed', error);
+    logger.error('[api/content/schedule] failed', error);
     res.status(500).json({ error: 'Failed to load schedule.' });
   }
 }
@@ -2094,7 +2095,7 @@ async function handlePublicLeague(req: any, res: any) {
     }
     res.status(200).json({ scores: (data ?? []) as LeagueScoreRow[] });
   } catch (error) {
-    console.error('[api/content/league] failed', error);
+    logger.error('[api/content/league] failed', error);
     res.status(500).json({ error: 'Failed to load league scores.' });
   }
 }
@@ -2225,7 +2226,7 @@ async function handleAdminLeague(req: any, res: any) {
           return;
         }
       }
-      console.error('[api/content/admin/league] failed to save league seasons', error);
+      logger.error('[api/content/admin/league] failed to save league seasons', error);
       res.status(500).json({ error: 'Failed to save league seasons.' });
       return;
     }
@@ -2282,7 +2283,7 @@ async function handleAdminAlbumTitles(req: any, res: any) {
   res.status(405).json({ error: 'Method not allowed' });
 }
 
-export default async function handler(req: any, res: any) {
+async function handler(req: any, res: any) {
   const rawPath = req.query?.path;
   let segments = Array.isArray(rawPath)
     ? rawPath
@@ -2418,3 +2419,5 @@ export default async function handler(req: any, res: any) {
 
   res.status(404).json({ error: 'Not found' });
 }
+
+export default withLogging('/api/content', handler);

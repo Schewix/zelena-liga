@@ -1,3 +1,4 @@
+import { withLogging } from '../../api-lib/logger.js';
 import { createClient } from '@supabase/supabase-js';
 import { createHmac } from 'node:crypto';
 
@@ -212,7 +213,7 @@ async function processSubmission(
   return <OperationResult>{ id: operation.id, status: 'done' };
 }
 
-export default async function handler(req: any, res: any) {
+async function handler(req: any, res: any) {
   applyCors(res);
 
   if (req.method === 'OPTIONS') {
@@ -384,3 +385,5 @@ export default async function handler(req: any, res: any) {
 
   return res.status(200).json({ results });
 }
+
+export default withLogging('/api/auth/sync', handler);

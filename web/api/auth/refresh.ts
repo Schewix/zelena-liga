@@ -1,3 +1,4 @@
+import { withLogging, logger } from '../../api-lib/logger.js';
 import { createClient } from '@supabase/supabase-js';
 import jwt from 'jsonwebtoken';
 import {
@@ -170,7 +171,7 @@ function applyCors(res: any) {
 
 function respond(res: any, status: number, message: string, detail?: string) {
   if (status >= 500) {
-    console.error('[api/auth/refresh]', message, detail ? { detail } : {});
+    logger.error('[api/auth/refresh]', message, detail ? { detail } : {});
   }
   return res.status(status).json(detail ? { error: message, detail } : { error: message });
 }
@@ -396,7 +397,7 @@ async function handleManifestRequest(req: any, res: any) {
   return res.json({ manifest, patrols, device_salt: session.device_salt });
 }
 
-export default async function handler(req: any, res: any) {
+async function handler(req: any, res: any) {
   try {
     applyCors(res);
 
@@ -527,3 +528,5 @@ export default async function handler(req: any, res: any) {
     return respond(res, 500, 'Internal server error', error instanceof Error ? error.message : 'unknown');
   }
 }
+
+export default withLogging('/api/auth/refresh', handler);
