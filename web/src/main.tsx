@@ -85,6 +85,10 @@ const ROUTE_SEO: Record<string, Pick<SeoConfig, 'title' | 'description'>> = {
     title: 'Kontakty | Zelená liga',
     description: 'Kontaktní informace pro organizátory Zelené ligy a SPTO Brno.',
   },
+  '/sponzori': {
+    title: 'Sponzoři | Zelená liga',
+    description: 'Sponzoři a podpora činnosti SPTO a Zelené ligy.',
+  },
   '/o-spto': {
     title: 'O SPTO Brno | Zelená liga',
     description: 'Informace o Sdružení pionýrských tábornických oddílů Brno.',

@@ -364,6 +364,10 @@
       "destination": "/"
     },
     {
+      "source": "/sponzori",
+      "destination": "/"
+    },
+    {
       "source": "/kontakty",
       "destination": "/"
     },

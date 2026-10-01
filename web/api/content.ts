@@ -268,6 +268,7 @@ const SITEMAP_STATIC_ENTRIES: SitemapStaticEntry[] = [
   { path: '/fotogalerie', changefreq: 'daily', priority: 0.7 },
   { path: '/clanky', changefreq: 'daily', priority: 0.8 },
   { path: '/o-spto', changefreq: 'monthly', priority: 0.6 },
+  { path: '/sponzori', changefreq: 'monthly', priority: 0.6 },
   { path: '/kontakty', changefreq: 'monthly', priority: 0.6 },
 ];
 

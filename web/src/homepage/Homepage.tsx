@@ -16,6 +16,8 @@ import {
 import { PortableText } from '@portabletext/react';
 import AppFooter from '../components/AppFooter';
 import logo from '../assets/znak_SPTO_transparent.png';
+import southMoravianRegionLogo from '../assets/sponsors/jihomoravsky-kraj.jpg';
+import brnoLogo from '../assets/sponsors/brno.png';
 import { fetchContentArticle, fetchContentArticles, type ContentArticle } from '../data/content';
 import {
   documentExtraLinks,
@@ -154,6 +156,7 @@ const NAV_ITEMS = [
   { id: 'souteze', label: 'Soutěže', href: '/souteze' },
   { id: 'oddily', label: 'Oddíly SPTO', href: '/oddily' },
   { id: 'o-spto', label: 'O SPTO', href: '/o-spto' },
+  { id: 'sponzori', label: 'Sponzoři', href: '/sponzori' },
   { id: 'kontakty', label: 'Kontakty', href: '/kontakty' },
 ];
 
@@ -1905,6 +1908,42 @@ function TroopDetailPage({ troop }: { troop: Troop }) {
         <a className="homepage-back-link homepage-back-link--inline" href="/oddily">
           Zpět na seznam oddílů
         </a>
+      </main>
+    </SiteShell>
+  );
+}
+
+function SponsorsPage() {
+  return (
+    <SiteShell>
+      <main className="homepage-main homepage-single" aria-labelledby="sponsors-heading">
+        <h1 id="sponsors-heading">Sponzoři</h1>
+        <p className="homepage-lead">Podpořte děti.</p>
+        <div className="homepage-card sponsors-content">
+          <p>
+            Za naší činností stojí pomoc přátel, partnerů a sponzorů. Dotace, granty, finanční
+            i materiální dary a především čas dobrovolníků nám umožňují připravovat aktivity
+            pro děti. Každá taková podpora přispívá k jejich rozvoji, zážitkům a budoucnosti.
+          </p>
+          <p>
+            Na financování činnosti se prostřednictvím dotací podílejí Jihomoravský kraj,
+            statutární město Brno a Ministerstvo školství, mládeže a tělovýchovy (MŠMT).
+          </p>
+          <div className="sponsors-logos" aria-label="Loga podporovatelů">
+            <div className="sponsors-logo">
+              <img src={southMoravianRegionLogo} alt="Jihomoravský kraj" width="1093" height="262" />
+            </div>
+            <div className="sponsors-logo">
+              <img src={brnoLogo} alt="Statutární město Brno" width="1526" height="687" />
+            </div>
+          </div>
+          <p>
+            Způsob pomoci si můžete vybrat sami: finanční příspěvek, materiální dar nebo
+            doporučení Pionýra na základě vlastních dobrých zkušeností. Podrobnosti vám rádi
+            sdělíme na <a href="mailto:kancelar@jmpionyr.cz">kancelar@jmpionyr.cz</a>.
+          </p>
+          <p>Všem našim podporovatelům patří velké poděkování.</p>
+        </div>
       </main>
     </SiteShell>
   );
@@ -5134,6 +5173,9 @@ function resolveActiveNav(pathname: string) {
   if (slug === 'kontakty') {
     return 'kontakty';
   }
+  if (slug === 'sponzori') {
+    return 'sponzori';
+  }
   return undefined;
 }
 
@@ -7994,6 +8036,10 @@ export default function ZelenaligaSite() {
 
     if (slug === 'kontakty') {
       return <ContactsPage />;
+    }
+
+    if (slug === 'sponzori') {
+      return <SponsorsPage />;
     }
 
   }

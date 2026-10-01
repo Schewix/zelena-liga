@@ -1886,6 +1886,35 @@ a.schedule-doc-link:focus-visible {
   margin: 0;
 }
 
+.sponsors-content {
+  text-align: left;
+}
+
+.sponsors-logos {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 24px;
+  margin-block: 24px;
+}
+
+.sponsors-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 1 290px;
+  min-width: 0;
+  padding: 20px;
+  background: #fff;
+  border-radius: 12px;
+}
+
+.sponsors-logo img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
 .homepage-single.articles-page {
   max-width: min(1120px, 100%);
   align-items: stretch;

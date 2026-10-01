@@ -50,6 +50,13 @@ export default function AppFooter({ className, variant = 'minimal', onSecretTrig
           SPTO · Projekt SPTO Brno · Součást Pionýra
         </p>
         <p>
+          Web je pod správou{' '}
+          <a href="https://jmkop.pionyr.cz/" target="_blank" rel="noreferrer">
+            Jihomoravské krajské organizace Pionýra (JMKOP)
+          </a>
+          .
+        </p>
+        <p>
           Vytvořili{' '}
           <a href="https://severka.org" target="_blank" rel="noreferrer">
             32. PTO Severka
