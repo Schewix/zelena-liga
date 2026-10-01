@@ -20,6 +20,7 @@ import type {
   MapPassage,
   MapPatrol,
   MapStationScore,
+  MapStationTicket,
   MapStation,
   MapTiming,
   StationMapPosition,
@@ -215,6 +216,7 @@ function LiveMapDashboard({
   const [patrols, setPatrols] = useState<MapPatrol[]>([]);
   const [timings, setTimings] = useState<MapTiming[]>([]);
   const [passages, setPassages] = useState<MapPassage[]>([]);
+  const [tickets, setTickets] = useState<MapStationTicket[]>([]);
   const [stationScores, setStationScores] = useState<MapStationScore[]>([]);
   const [selectedStationId, setSelectedStationId] = useState<string | null>(null);
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
@@ -263,6 +265,7 @@ function LiveMapDashboard({
         wait_minutes: Math.max(0, Number(passage.wait_minutes ?? 0) || 0),
       })));
       setStationScores((scoreRes.data ?? []) as MapStationScore[]);
+      setTickets((data.station_tickets ?? []) as MapStationTicket[]);
       setLastSyncAt(new Date().toISOString());
     } catch (loadError) {
       console.error('Failed to load live map data', loadError);
@@ -446,9 +449,10 @@ function LiveMapDashboard({
         patrols,
         timings,
         passages,
+        tickets,
         now: Date.now(),
       }),
-    [passages, patrols, timings],
+    [passages, patrols, tickets, timings],
   );
 
   const stationSummaries = useMemo(

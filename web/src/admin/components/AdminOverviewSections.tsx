@@ -6,6 +6,7 @@ import {
   type RaceDashboardSummary,
 } from '../adminSections';
 import { supabase } from '../../supabaseClient';
+import { API_BASE_URL } from '../apiConfig';
 
 type DashboardSectionProps = {
   eventLoading: boolean;
@@ -723,7 +724,7 @@ function escapeHtml(value: string) {
   })[character] ?? character);
 }
 
-export function AdminStartsSection({ eventId }: { eventId: string }) {
+export function AdminStartsSection({ eventId, accessToken }: { eventId: string; accessToken: string | null }) {
   const [rows, setRows] = useState<StartScheduleRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -732,34 +733,49 @@ export function AdminStartsSection({ eventId }: { eventId: string }) {
   const [firstStart, setFirstStart] = useState('');
   const [intervalMinutes, setIntervalMinutes] = useState(5);
 
+  const callStartsApi = async (payload: Record<string, unknown>) => {
+    if (!API_BASE_URL || !accessToken) {
+      throw new Error('Chybí konfigurace admin API nebo přístupový token.');
+    }
+    const response = await fetch(`${API_BASE_URL}/admin/event-state?setup=1`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...payload, event_id: eventId }),
+    });
+    const body = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error(body?.error || `Požadavek selhal (${response.status}).`);
+    }
+    return body;
+  };
+
   const loadSchedule = async () => {
     setLoading(true);
     setError(null);
-    const [patrolsResponse, timingsResponse, eventResponse] = await Promise.all([
-      supabase.from('patrols')
-        .select('id, patrol_code, team_name, category, sex, active')
-        .eq('event_id', eventId)
-        .order('patrol_code'),
-      supabase.from('timings').select('patrol_id, start_time').eq('event_id', eventId),
-      supabase.from('events').select('starts_at').eq('id', eventId).maybeSingle(),
-    ]);
-    setLoading(false);
-
-    if (patrolsResponse.error || timingsResponse.error) {
-      console.error('Failed to load start schedule', patrolsResponse.error, timingsResponse.error);
+    let data: {
+      patrols?: StartPatrolRow[];
+      timings?: StartTimingRow[];
+      event_starts_at?: string | null;
+    };
+    try {
+      data = await callStartsApi({ action: 'load_start_schedule' });
+    } catch (loadError) {
+      console.error('Failed to load start schedule', loadError);
+      setLoading(false);
       setRows([]);
       setError('Nepodařilo se načíst startovku.');
       return;
     }
+    setLoading(false);
 
     const timingByPatrol = new Map(
-      ((timingsResponse.data ?? []) as StartTimingRow[]).map((timing) => [timing.patrol_id, timing.start_time]),
+      (data.timings ?? []).map((timing) => [timing.patrol_id, timing.start_time]),
     );
-    const nextRows = ((patrolsResponse.data ?? []) as StartPatrolRow[])
+    const nextRows = (data.patrols ?? [])
       .filter((patrol) => patrol.active !== false)
       .map((patrol) => ({ ...patrol, startTime: timingByPatrol.get(patrol.id) ?? null }));
     setRows(nextRows);
-    const suggested = (eventResponse.data as { starts_at?: string | null } | null)?.starts_at
+    const suggested = data.event_starts_at
       ?? nextRows.find((row) => row.startTime)?.startTime
       ?? null;
     setFirstStart(toDateTimeLocalValue(suggested));
@@ -787,10 +803,12 @@ export function AdminStartsSection({ eventId }: { eventId: string }) {
     setSaving(true);
     setError(null);
     setMessage(null);
-    const { error: saveError } = await supabase.from('timings').upsert(
-      updates.map((update) => ({ event_id: eventId, ...update })),
-      { onConflict: 'event_id,patrol_id' },
-    );
+    let saveError: unknown = null;
+    try {
+      await callStartsApi({ action: 'save_start_times', updates });
+    } catch (error) {
+      saveError = error;
+    }
     setSaving(false);
     if (saveError) {
       console.error('Failed to save start schedule', saveError);

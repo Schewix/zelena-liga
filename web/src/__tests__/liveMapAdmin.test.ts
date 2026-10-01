@@ -33,10 +33,10 @@ describe('live map admin data', () => {
     await app.run({ action: 'load_live_map_events' });
     expect(app.res.json).toHaveBeenCalledWith({ events: [{ id: 'year-a', name: 'Ročník A' }, { id: 'year-b', name: 'Ročník B' }] });
   });
-  it.each(['year-a', 'year-b'])('scopes all seven datasets to %s and loads every page', async (eventId) => {
+  it.each(['year-a', 'year-b'])('scopes all eight datasets to %s and loads every page', async (eventId) => {
     const app = setup();
     await app.run({ action: 'load_live_map', event_id: eventId });
-    expect(new Set(app.filters.map(([table]) => table)).size).toBe(7);
+    expect(new Set(app.filters.map(([table]) => table)).size).toBe(8);
     expect(app.filters.every(([, key, value]) => key === 'event_id' && value === eventId)).toBe(true);
     expect(app.ranges).toContainEqual(['station_passages', 1000, 1999]);
     expect(app.res.json.mock.calls[0][0].station_passages).toHaveLength(1001);

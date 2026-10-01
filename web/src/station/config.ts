@@ -12,6 +12,8 @@ export const SUBMIT_STATION_RECORD_URL = import.meta.env.PROD
 
 export const SCORE_REVIEW_URL = import.meta.env.PROD ? '/api/station-score-review' : '';
 
+export const STATION_TICKETS_URL = import.meta.env.PROD ? '/api/station-tickets' : '';
+
 export const AUTH_API_BASE_URL = env.VITE_AUTH_API_URL?.replace(/\/$/, '') ?? '';
 
 export const ACCESS_TOKEN_REFRESH_SKEW_MS = 5 * 60 * 1000;

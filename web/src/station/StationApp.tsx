@@ -3,7 +3,7 @@ import zelenaLigaLogo from '../assets/znak_SPTO_transparent.png';
 import { ManifestFetchError } from '../auth/api';
 import { ACCESS_DENIED_MESSAGE } from '../auth/messages';
 import StationChangePasswordPage from '../auth/StationChangePasswordPage';
-import { Ticket,TicketState,computeWaitTime,createTicket,loadTickets,saveTickets,transitionTicket } from '../auth/tickets';
+import { Ticket,TicketState,computeWaitTime,createTicket,loadTickets,saveTickets,ticketSignature,transitionTicket } from '../auth/tickets';
 import { setupSyncListener } from '../backgroundSync';
 import AppFooter from '../components/AppFooter';
 import LastScoresList,{ type RestoreTargetEditPayload } from '../components/LastScoresList';
@@ -40,7 +40,7 @@ import { getManualPatrols,upsertManualPatrol } from '../storage/manualPatrols';
 import { loadStoredPatrolWaitMinutes,saveStoredPatrolWaitMinutes } from '../storage/patrolWaitMemory';
 import { appendScanRecord } from '../storage/scanHistory';
 import { supabase } from '../supabaseClient';
-import { syncStationTickets,type TicketSyncSignatures } from './ticketSync';
+import { exchangeStationTickets,mergeTickets,ticketSyncKey,type TicketSyncState } from './ticketSync';
 import {
 buildTimeScoringConfig,
 computePureCourseSeconds,
@@ -62,7 +62,7 @@ packAnswersForStorage,
 parseAnswerLetters,
 type TargetAnswerOptionCount,
 } from '../utils/targetAnswers';
-import { ACCESS_TOKEN_REFRESH_SKEW_MS,AUTH_API_BASE_URL,SCORE_REVIEW_URL,SUBMIT_STATION_RECORD_URL } from './config';
+import { ACCESS_TOKEN_REFRESH_SKEW_MS,AUTH_API_BASE_URL,SCORE_REVIEW_URL,STATION_TICKETS_URL,SUBMIT_STATION_RECORD_URL } from './config';
 import { OUTBOX_BATCH_SIZE,releaseOutboxFlushLock,tryAcquireOutboxFlushLock,writeOutboxEntriesAndSync,writeOutboxEntryAndSync } from './outboxSync';
 import { compareSummaryPatrols,createManualPatrolFromCode,formatMergedPatrolCode,formatPatrolMetaLabel,formatSummaryPatrolLabel,getPatrolCodeVariants,hasExplicitSexPatrolCode,isMergedPatrolCode,pickPatrolCandidate } from './patrolLookup';
 import { buildPatrolTeamNameFromTroops,buildUniqueTroopList,createEmptyPatrolProfileRows,normalizeProfileText,normalizeTroopName,parsePatrolProfileDraft,parseTroopsFromTeamName,stringifyPatrolProfileRows,validatePatrolProfileDraft } from './patrolProfile';
@@ -572,7 +572,15 @@ export function StationApp({
     (updater: (current: Ticket[]) => Ticket[]) => {
       let nextTickets: Ticket[] = [];
       setTickets((prev) => {
-        const next = updater(prev);
+        const updated = updater(prev);
+        const stampedAt = new Date().toISOString();
+        const previousById = new Map(prev.map((ticket) => [ticket.id, ticket] as const));
+        const next = updated.map((ticket) => {
+          const before = previousById.get(ticket.id);
+          return before && ticketSignature(before) === ticketSignature(ticket)
+            ? ticket
+            : { ...ticket, updatedAt: stampedAt };
+        });
         nextTickets = next;
         void saveTickets(stationId, next);
         return next;
@@ -970,6 +978,8 @@ export function StationApp({
         if (exists) {
           return current;
         }
+        // One ticket per patrol: a finished/removed one is replaced by the new entry.
+        current = current.filter((ticket) => ticket.patrolId !== scannerPatrol.id);
         const restoredWaitMinutes = Number(options?.restoredWaitMinutes ?? 0);
         const nowMs = Date.now();
         const nowIso = new Date(nowMs).toISOString();
@@ -1968,7 +1978,9 @@ export function StationApp({
         }
       }
 
-      updateTickets((current) => current.filter((ticket) => ticket.id !== id));
+      updateTickets((current) =>
+        current.map((candidate) => (candidate.id === id ? transitionTicket(candidate, 'done') : candidate)),
+      );
       setPatrolFormDrafts((current) => {
         if (!Object.prototype.hasOwnProperty.call(current, ticket.patrolId)) {
           return current;
@@ -2009,30 +2021,59 @@ export function StationApp({
     return () => window.clearInterval(interval);
   }, []);
 
-  const syncedTicketsRef = useRef<TicketSyncSignatures>(new Map());
+  // The queue is shared between all judges of the station: push local changes, pull and merge the rest.
+  const syncedTicketsRef = useRef<TicketSyncState>(new Map());
   const latestTicketsRef = useRef<Ticket[]>(tickets);
   latestTicketsRef.current = tickets;
-  const pushTicketsToServer = useCallback(() => {
-    if (!enableTicketQueue || !eventId || !stationId) {
+  const latestAccessTokenRef = useRef<string | null>(auth.tokens.accessToken);
+  latestAccessTokenRef.current = auth.tokens.accessToken;
+  const ticketExchangeInFlightRef = useRef(false);
+  const exchangeTickets = useCallback(async () => {
+    if (!enableTicketQueue || !STATION_TICKETS_URL || ticketExchangeInFlightRef.current) {
       return;
     }
-    void syncStationTickets({
-      eventId,
-      stationId,
-      tickets: latestTicketsRef.current,
-      synced: syncedTicketsRef.current,
-    }).catch((error) => console.warn('Ticket sync failed', error));
-  }, [enableTicketQueue, eventId, stationId]);
+    const session = requireAccessToken(latestAccessTokenRef.current);
+    if (!session.accessToken) {
+      return;
+    }
+    ticketExchangeInFlightRef.current = true;
+    try {
+      const remote = await exchangeStationTickets({
+        url: STATION_TICKETS_URL,
+        accessToken: session.accessToken,
+        tickets: latestTicketsRef.current,
+        synced: syncedTicketsRef.current,
+      });
+      const merged = mergeTickets(latestTicketsRef.current, remote);
+      merged.remoteTickets.forEach((ticket) => syncedTicketsRef.current.set(ticket.patrolId, ticketSyncKey(ticket)));
+      if (merged.changed) {
+        latestTicketsRef.current = merged.tickets;
+        setTickets(merged.tickets);
+        void saveTickets(stationId, merged.tickets);
+      }
+    } catch (error) {
+      console.warn('Ticket sync failed', error);
+    } finally {
+      ticketExchangeInFlightRef.current = false;
+    }
+  }, [enableTicketQueue, stationId]);
   useEffect(() => {
     syncedTicketsRef.current = new Map();
   }, [eventId, stationId]);
   useEffect(() => {
-    pushTicketsToServer();
-  }, [pushTicketsToServer, tickets]);
+    void exchangeTickets();
+  }, [exchangeTickets, tickets]);
   useEffect(() => {
-    const interval = window.setInterval(pushTicketsToServer, 30000);
-    return () => window.clearInterval(interval);
-  }, [pushTicketsToServer]);
+    const interval = window.setInterval(() => void exchangeTickets(), 5000);
+    const onFocus = () => void exchangeTickets();
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('online', onFocus);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('online', onFocus);
+    };
+  }, [exchangeTickets]);
 
   useEffect(() => {
     setUseTargetScoring(isTargetStation);

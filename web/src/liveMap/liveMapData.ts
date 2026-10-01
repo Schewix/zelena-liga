@@ -4,6 +4,7 @@ import type {
   MapPatrol,
   MapStationScore,
   MapStation,
+  MapStationTicket,
   MapTiming,
   StationLiveSummary,
   StationMapPosition,
@@ -66,8 +67,20 @@ export function buildLivePatrolStates(input: {
   patrols: readonly MapPatrol[];
   timings: readonly MapTiming[];
   passages: readonly MapPassage[];
+  tickets?: readonly MapStationTicket[];
   now: number;
 }) {
+  // The shared station queue is authoritative: it says exactly who waits and who is being served where.
+  const activeTicketByPatrol = new Map<string, MapStationTicket>();
+  (input.tickets ?? []).forEach((ticket) => {
+    if (ticket.state === 'done') {
+      return;
+    }
+    const current = activeTicketByPatrol.get(ticket.patrol_id);
+    if (!current || toTimestamp(ticket.arrived_at) > toTimestamp(current.arrived_at) || !Number.isFinite(toTimestamp(current.arrived_at))) {
+      activeTicketByPatrol.set(ticket.patrol_id, ticket);
+    }
+  });
   const timingByPatrol = new Map(input.timings.map((timing) => [timing.patrol_id, timing] as const));
   const passagesByPatrol = createPassageIndex(input.passages);
 
@@ -107,6 +120,19 @@ export function buildLivePatrolStates(input: {
         currentStationId: latestPassage?.station_id ?? null,
         latestArrivalAt,
         waitMinutes,
+      });
+      return;
+    }
+
+    const queueTicket = activeTicketByPatrol.get(patrol.id);
+    if (queueTicket) {
+      const arrivedTs = toTimestamp(queueTicket.arrived_at);
+      onCourse.push({
+        patrol,
+        status: queueTicket.state === 'waiting' ? 'ceka' : 'plni',
+        currentStationId: queueTicket.station_id,
+        latestArrivalAt: queueTicket.arrived_at,
+        waitMinutes: Number.isFinite(arrivedTs) ? Math.max(0, Math.floor((input.now - arrivedTs) / 60000)) : 0,
       });
       return;
     }

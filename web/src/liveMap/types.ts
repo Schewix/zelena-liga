@@ -52,6 +52,14 @@ export type MapPassage = {
   client_created_at: string | null;
 };
 
+export type MapStationTicket = {
+  id: string;
+  station_id: string;
+  patrol_id: string;
+  state: 'waiting' | 'serving' | 'done';
+  arrived_at: string | null;
+};
+
 export type MapStationScore = {
   id: string;
   event_id: string;

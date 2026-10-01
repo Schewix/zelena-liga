@@ -1846,7 +1846,7 @@ export function AdminDashboard({
         ) : null}
 
         {isPatrolsPage ? <AdminPatrolsOverviewSection eventId={activeEventId} /> : null}
-        {isPatrolsPage ? <AdminStartsSection eventId={activeEventId} /> : null}
+        {isPatrolsPage ? <AdminStartsSection eventId={activeEventId} accessToken={accessToken} /> : null}
 
         {isStationsPage ? (
         <TargetAnswersSection
@@ -1901,6 +1901,11 @@ answersSaving={answersSaving}
             </header>
             {setupError ? <p className="admin-error">{setupError}</p> : null}
             {setupSuccess ? <p className="admin-success">{setupSuccess}</p> : null}
+            <AdminStationHealthPanel
+              stationCards={stationHealthCards}
+              onToggleStationClosed={(stationId, nextClosed) => void handleToggleStationClosed(stationId, nextClosed)}
+              stationClosingId={stationClosingId}
+            />
             <div className="admin-setup-block">
               <h3>Rozhodčí a přiřazení</h3>
               <p className="admin-card-subtitle">
@@ -1987,14 +1992,6 @@ answersSaving={answersSaving}
             </div>
             <AdminJudgeAssignmentsPanel assignmentRows={selectedSetupAssignments} />
           </section>
-        ) : null}
-
-        {isStationsPage ? (
-          <AdminStationHealthPanel
-            stationCards={stationHealthCards}
-            onToggleStationClosed={(stationId, nextClosed) => void handleToggleStationClosed(stationId, nextClosed)}
-            stationClosingId={stationClosingId}
-          />
         ) : null}
 
         {isSettingsPage ? (

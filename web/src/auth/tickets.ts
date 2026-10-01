@@ -19,6 +19,8 @@ export interface Ticket {
   serveStartedAt?: string;
   serveAccumMs: number;
   points?: number | null;
+  /** Last local/remote change, used to merge the queue shared between judges of one station. */
+  updatedAt?: string;
 }
 
 const TICKETS_KEY_PREFIX = 'station_tickets_v1_';
@@ -57,6 +59,7 @@ function sanitizeTicket(raw: StoredTicket): Ticket {
     serveStartedAt: undefined,
     serveAccumMs: 0,
     points,
+    updatedAt: typeof raw.updatedAt === 'string' && raw.updatedAt ? raw.updatedAt : raw.createdAt,
   } satisfies Ticket;
 }
 
@@ -109,7 +112,24 @@ export function createTicket(data: {
     serveStartedAt: undefined,
     serveAccumMs: 0,
     points: null,
+    updatedAt: now,
   };
+}
+
+/** Content fingerprint of a ticket (without updatedAt), used to detect changes. */
+export function ticketSignature(ticket: Ticket) {
+  return JSON.stringify([
+    ticket.state,
+    ticket.patrolCode,
+    ticket.teamName,
+    ticket.category,
+    ticket.sex,
+    ticket.arrivedAt ?? null,
+    ticket.servedAt ?? null,
+    ticket.waitStartedAt ?? null,
+    ticket.waitAccumMs,
+    ticket.points ?? null,
+  ]);
 }
 
 function toMs(value: string | undefined) {

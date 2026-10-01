@@ -18,6 +18,7 @@ export async function loadLiveMap(db: any, payload: Record<string, unknown>, res
     timings: 'event_id,patrol_id,start_time,finish_time',
     station_passages: 'id,event_id,station_id,patrol_id,arrived_at,left_at,wait_minutes,client_created_at',
     station_scores: 'id,event_id,station_id,patrol_id,created_at,client_created_at',
+    station_tickets: 'id,event_id,station_id,patrol_id,state,arrived_at',
   };
   try {
     const entries = await Promise.all(Object.entries(tables).map(async ([table, columns]) => {

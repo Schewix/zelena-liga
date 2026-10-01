@@ -29,6 +29,15 @@ export function getSupabaseAdminConfig() {
 }
 
 export async function requireCalcSession(req: any, res: any) {
+  return authenticateJudgeSession(req, res, { calcOnly: true });
+}
+
+/** Any judge session assigned to the station in its token (not only the calc station). */
+export async function requireStationSession(req: any, res: any) {
+  return authenticateJudgeSession(req, res, { calcOnly: false });
+}
+
+async function authenticateJudgeSession(req: any, res: any, options: { calcOnly: boolean }) {
   const authHeader = req.headers?.authorization;
   if (!authHeader?.startsWith('Bearer ')) {
     res.status(401).json({ error: 'Missing session' });
@@ -131,7 +140,7 @@ export async function requireCalcSession(req: any, res: any) {
   }
 
   const stationCode = (station?.code ?? '').trim().toUpperCase();
-  if (stationCode !== 'T') {
+  if (options.calcOnly && stationCode !== 'T') {
     res.status(403).json({ error: 'Forbidden' });
     return null;
   }
@@ -139,5 +148,7 @@ export async function requireCalcSession(req: any, res: any) {
   return {
     supabaseAdmin,
     eventId: tokenEventId,
+    stationId: tokenStationId,
+    judgeId,
   };
 }
