@@ -1,15 +1,11 @@
+import { useState } from 'react';
 import {
-ANSWER_CATEGORIES,
-CategoryKey,
-formatAnswersForInput,
-isCategoryKey,
-normalizeAnswersInput,
-packAnswersForStorage,
-parseAnswerLetters,
-type TargetAnswerOptionCount,
+  ANSWER_CATEGORIES,
+  normalizeAnswersInput,
+  type TargetAnswerOptionCount,
 } from '../../utils/targetAnswers';
-import { DEFAULT_TARGET_ANSWER_OPTION_COUNT,formatMinutesAsTimeInput,parseTimeInputToMinutes,toPositiveInt,toTargetAnswerOptionCount } from '../setup/validation';
-import { AnswersFormState,AnswersSummary,AuthenticatedState,CategoryToggleState,DisqualifyPatrol,EventState,JudgeTaskPresetKey,MissingDialogState,PatrolCountsState,PatrolStartsState,PatrolSummary,SelectedSetupAssignmentSummary,SetupAssignmentRow,SetupEventRow,SetupEventScoringConfig,SetupJudgeRow,SetupStationOrderPayload,SetupStationOrderRow,SetupStationRow,StationPassageRow,StationSplitDraft } from '../types';
+import { toTargetAnswerOptionCount } from '../setup/validation';
+import type { AnswersFormState, AnswersSummary } from '../types';
 
 export type TargetAnswersSectionProps = {
 targetAnswerInputHint: "A-C" | "A-D";
@@ -31,6 +27,7 @@ answersSaving: boolean;
 };
 
 export function TargetAnswersSection({ targetAnswerInputHint, loadAnswers, answersLoading, answersError, answersSuccess, activeEventName, answersTargetOptionCount, setAnswersTargetOptionCount, setupSaving, setupLoading, answersSummary, answersForm, setAnswersForm, targetAnswerInputPattern, handleSaveAnswers, answersSaving }: TargetAnswersSectionProps) {
+const [collapsed, setCollapsed] = useState(false);
 return (<section className="admin-card admin-card--with-divider admin-card--section admin-section-block admin-section-block--stations">
           <header className="admin-card-header">
             <div>
@@ -43,6 +40,15 @@ return (<section className="admin-card admin-card--with-divider admin-card--sect
               <button
                 type="button"
                 className="admin-button admin-button--secondary"
+                aria-expanded={!collapsed}
+                aria-controls="admin-target-answers-content"
+                onClick={() => setCollapsed((value) => !value)}
+              >
+                {collapsed ? 'Zobrazit nastavení' : 'Sbalit nastavení'}
+              </button>
+              <button
+                type="button"
+                className="admin-button admin-button--secondary"
                 onClick={loadAnswers}
                 disabled={answersLoading}
               >
@@ -52,6 +58,7 @@ return (<section className="admin-card admin-card--with-divider admin-card--sect
           </header>
           {answersError ? <p className="admin-error">{answersError}</p> : null}
           {answersSuccess ? <p className="admin-success">{answersSuccess}</p> : null}
+          <div id="admin-target-answers-content" hidden={collapsed}>
           <p className="admin-card-subtitle">
             Ročník nastavení: <strong>{activeEventName}</strong>
           </p>
@@ -62,7 +69,7 @@ return (<section className="admin-card admin-card--with-divider admin-card--sect
                 id="admin-target-answer-option-count"
                 value={answersTargetOptionCount}
                 onChange={(event) => setAnswersTargetOptionCount(toTargetAnswerOptionCount(event.target.value))}
-                disabled={setupSaving || setupLoading}
+                disabled={setupSaving || setupLoading || answersSaving || answersLoading}
               >
                 <option value={4}>4 možnosti (A-D)</option>
                 <option value={3}>3 možnosti (A-C)</option>
@@ -86,18 +93,24 @@ return (<section className="admin-card admin-card--with-divider admin-card--sect
                     <input
                       id={`answers-${category}`}
                       value={answersForm[category]}
+                      maxLength={12}
+                      disabled={answersLoading || answersSaving}
+                      aria-describedby={`answers-count-${category}`}
                       onChange={(event) =>
                         setAnswersForm((prev) => ({
                           ...prev,
                           [category]: normalizeAnswersInput(event.target.value, {
                             maxOptionCount: answersTargetOptionCount,
-                          }),
+                          }).slice(0, 12),
                         }))
                       }
                       placeholder={`např. ${targetAnswerInputHint}…`}
                       pattern={targetAnswerInputPattern}
                     />
                   </label>
+                  <p id={`answers-count-${category}`} className="admin-answers-meta">
+                    {normalizeAnswersInput(answersForm[category]).length} / 12 odpovědí
+                  </p>
                   <p className="admin-answers-meta">
                     {hasAnswers ? (
                       <>
@@ -130,10 +143,11 @@ return (<section className="admin-card admin-card--with-divider admin-card--sect
               type="button"
               className="admin-button admin-button--primary"
               onClick={handleSaveAnswers}
-              disabled={answersSaving}
+              disabled={answersSaving || answersLoading || setupLoading || setupSaving}
             >
               {answersSaving ? 'Ukládám…' : 'Uložit správné odpovědi'}
             </button>
+          </div>
           </div>
         </section>);
 }

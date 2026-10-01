@@ -414,7 +414,24 @@ export function AdminLiveMapSection({ eventId, mapRoute }: LiveMapSectionProps) 
   );
 }
 
-export function AdminQueuesSection() {
+type AdminQueuesSectionProps = {
+  waiting: number;
+  serving: number;
+  waitingSinceMs: number[];
+};
+
+function formatQueueWait(ms: number) {
+  const totalMinutes = Math.max(0, Math.floor(ms / 60000));
+  const hours = Math.floor(totalMinutes / 60).toString().padStart(2, '0');
+  const minutes = (totalMinutes % 60).toString().padStart(2, '0');
+  return `${hours}:${minutes}`;
+}
+
+export function AdminQueuesSection({ waiting, serving, waitingSinceMs }: AdminQueuesSectionProps) {
+  const now = Date.now();
+  const waits = waitingSinceMs.map((since) => Math.max(0, now - since));
+  const averageWait = waits.length ? waits.reduce((sum, wait) => sum + wait, 0) / waits.length : null;
+  const maxWait = waits.length ? Math.max(...waits) : null;
   return (
     <section
       id={toAdminSectionId('queues')}
@@ -424,29 +441,28 @@ export function AdminQueuesSection() {
         <div>
           <h2>Fronty a čekání</h2>
           <p className="admin-card-subtitle">
-            Přehled čekání podle stanovišť. UI je připravené pro pozdější napojení dat.
+            Aktuální stav front na všech stanovištích (čekání ve formátu HH:MM).
           </p>
         </div>
       </header>
       <div className="admin-placeholder-grid">
         <div className="admin-placeholder-item">
           <strong>Čekající hlídky</strong>
-          <span>—</span>
+          <span>{waiting}</span>
         </div>
         <div className="admin-placeholder-item">
           <strong>Právě odbavováno</strong>
-          <span>—</span>
+          <span>{serving}</span>
         </div>
         <div className="admin-placeholder-item">
           <strong>Průměrné čekání</strong>
-          <span>—</span>
+          <span>{averageWait === null ? '—' : formatQueueWait(averageWait)}</span>
         </div>
         <div className="admin-placeholder-item">
           <strong>Maximální čekání</strong>
-          <span>—</span>
+          <span>{maxWait === null ? '—' : formatQueueWait(maxWait)}</span>
         </div>
       </div>
-      {/* TODO: Napojit data front a čekání po stanovištích z backendu. */}
     </section>
   );
 }

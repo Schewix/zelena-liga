@@ -14,7 +14,6 @@ toStationCategoryKey
 import {
 ANSWER_CATEGORIES,
 CategoryKey,
-formatAnswersForInput,
 isCategoryKey,
 normalizeAnswersInput,
 packAnswersForStorage,
@@ -84,6 +83,8 @@ export function AdminDashboard({
   const [answersSuccess, setAnswersSuccess] = useState<string | null>(null);
 
   const [stationRows, setStationRows] = useState<StationPassageRow[]>([]);
+  const [waitingSinceMs, setWaitingSinceMs] = useState<number[]>([]);
+  const [stationQueues, setStationQueues] = useState<Map<string, { waiting: number; serving: number }>>(new Map());
   const [stationLoading, setStationLoading] = useState(false);
   const [stationError, setStationError] = useState<string | null>(null);
   const [missingDialog, setMissingDialog] = useState<MissingDialogState | null>(null);
@@ -240,17 +241,16 @@ export function AdminDashboard({
         return;
       }
       const packed = typeof row.correct_answers === 'string' ? row.correct_answers : '';
-      form[category] = formatAnswersForInput(packed, { maxOptionCount: answersTargetOptionCount });
+      form[category] = normalizeAnswersInput(packed);
       summary[category] = {
-        letters: parseAnswerLetters(packed, { maxOptionCount: answersTargetOptionCount }),
+        letters: parseAnswerLetters(packed),
         updatedAt: row.updated_at ?? null,
       };
     });
 
     setAnswersForm(form);
     setAnswersSummary(summary);
-    setAnswersSuccess(null);
-  }, [activeEventId, answersTargetOptionCount, eventId, setupEvents, setupStations, stationId]);
+  }, [activeEventId, eventId, setupEvents, setupStations, stationId]);
 
   const loadStationStats = useCallback(async () => {
     setStationLoading(true);
@@ -274,6 +274,31 @@ export function AdminDashboard({
     ]);
 
     setStationLoading(false);
+
+    // Queue state is optional: a failure here must not hide passages.
+    const ticketsRes = await supabase
+      .from('station_tickets')
+      .select('station_id, state, arrived_at')
+      .eq('event_id', activeEventId)
+      .in('state', ['waiting', 'serving']);
+    if (ticketsRes.error) {
+      console.warn('Failed to load station queues', ticketsRes.error);
+    } else {
+      const queues = new Map<string, { waiting: number; serving: number }>();
+      const ticketRows = ((ticketsRes.data ?? []) as Array<{ station_id: string; state: 'waiting' | 'serving'; arrived_at: string | null }>);
+      const waitingSince: number[] = [];
+      ticketRows.forEach((row) => {
+        const arrivedMs = Date.parse(row.arrived_at ?? '');
+        if (row.state === 'waiting' && Number.isFinite(arrivedMs)) {
+          waitingSince.push(arrivedMs);
+        }
+        const entry = queues.get(row.station_id) ?? { waiting: 0, serving: 0 };
+        entry[row.state] += 1;
+        queues.set(row.station_id, entry);
+      });
+      setStationQueues(queues);
+      setWaitingSinceMs(waitingSince);
+    }
 
     if (stationsRes.error || passagesRes.error || patrolsRes.error) {
       console.error(
@@ -856,14 +881,20 @@ export function AdminDashboard({
         status,
         statusLabel,
         judgeCount,
-        queueLabel: 'TODO',
+        queueLabel: (() => {
+          const queue = stationQueues.get(station.id);
+          if (!queue || (queue.waiting === 0 && queue.serving === 0)) {
+            return 'Prázdná';
+          }
+          return `${queue.waiting} čeká, ${queue.serving} obsluha`;
+        })(),
         lastPassageAt: row?.lastPassageAt ?? null,
         passed,
         expected,
         missing,
       };
     });
-  }, [raceDashboardSummary.patrolsSeenOnCourse, selectedSetupAssignments, selectedSetupStations, stationRows]);
+  }, [raceDashboardSummary.patrolsSeenOnCourse, selectedSetupAssignments, selectedSetupStations, stationQueues, stationRows]);
 
   useEffect(() => {
     setSetupEventScoringConfig(normalizeSetupEventScoringConfig(selectedSetupEvent));
@@ -1197,9 +1228,9 @@ export function AdminDashboard({
         }
       }
 
-      setAnswersSuccess('Správné odpovědi a počet možností byly uloženy.');
       await loadAnswers();
       await loadSetupData();
+      setAnswersSuccess('Správné odpovědi a počet možností byly uloženy do databáze.');
     } catch (error) {
       console.error('Failed to save category answers', error);
       setAnswersError('Uložení správných odpovědí nebo nastavení možností selhalo.');
@@ -2568,7 +2599,13 @@ setupSaving={setupSaving}
         </section>
         ) : null}
 
-        {isLivePage ? <AdminQueuesSection /> : null}
+        {isLivePage ? (
+          <AdminQueuesSection
+            waiting={Array.from(stationQueues.values()).reduce((sum, queue) => sum + queue.waiting, 0)}
+            serving={Array.from(stationQueues.values()).reduce((sum, queue) => sum + queue.serving, 0)}
+            waitingSinceMs={waitingSinceMs}
+          />
+        ) : null}
         {isLivePage ? (
           <AdminLiveMapSection
             eventId={activeEventId}

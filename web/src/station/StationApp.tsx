@@ -40,6 +40,7 @@ import { getManualPatrols,upsertManualPatrol } from '../storage/manualPatrols';
 import { loadStoredPatrolWaitMinutes,saveStoredPatrolWaitMinutes } from '../storage/patrolWaitMemory';
 import { appendScanRecord } from '../storage/scanHistory';
 import { supabase } from '../supabaseClient';
+import { syncStationTickets,type TicketSyncSignatures } from './ticketSync';
 import {
 buildTimeScoringConfig,
 computePureCourseSeconds,
@@ -2007,6 +2008,31 @@ export function StationApp({
     }, 1000);
     return () => window.clearInterval(interval);
   }, []);
+
+  const syncedTicketsRef = useRef<TicketSyncSignatures>(new Map());
+  const latestTicketsRef = useRef<Ticket[]>(tickets);
+  latestTicketsRef.current = tickets;
+  const pushTicketsToServer = useCallback(() => {
+    if (!enableTicketQueue || !eventId || !stationId) {
+      return;
+    }
+    void syncStationTickets({
+      eventId,
+      stationId,
+      tickets: latestTicketsRef.current,
+      synced: syncedTicketsRef.current,
+    }).catch((error) => console.warn('Ticket sync failed', error));
+  }, [enableTicketQueue, eventId, stationId]);
+  useEffect(() => {
+    syncedTicketsRef.current = new Map();
+  }, [eventId, stationId]);
+  useEffect(() => {
+    pushTicketsToServer();
+  }, [pushTicketsToServer, tickets]);
+  useEffect(() => {
+    const interval = window.setInterval(pushTicketsToServer, 30000);
+    return () => window.clearInterval(interval);
+  }, [pushTicketsToServer]);
 
   useEffect(() => {
     setUseTargetScoring(isTargetStation);
