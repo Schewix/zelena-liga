@@ -1,12 +1,11 @@
-import { fetchPionyrArticleBySlug } from '../api-lib/content/pionyr.js';
-import { fetchLocalArticleSummaries } from '../api-lib/content/articles/public.js';
-import { mapLocalRow, type LocalArticleRow, type PublicArticle } from '../api-lib/content/articles/model.js';
-import { mapPionyr } from '../api-lib/content/articles/import.js';
-import { loadLeagueSeasons } from '../api-lib/content/league.js';
-import { type ScheduleEventRow, toPublicScheduleEvent } from '../api-lib/content/schedule.js';
-import { buildSeoPage, renderSeoHtml, type SeoDeps } from '../api-lib/content/seoPage.js';
-import { getSupabaseAdminClient } from '../api-lib/content/supabaseAdmin.js';
-import { withLogging } from '../api-lib/logger.js';
+import { fetchPionyrArticleBySlug } from './pionyr.js';
+import { fetchLocalArticleSummaries } from './articles/public.js';
+import { mapLocalRow, type LocalArticleRow, type PublicArticle } from './articles/model.js';
+import { mapPionyr } from './articles/import.js';
+import { loadLeagueSeasons } from './league.js';
+import { type ScheduleEventRow, toPublicScheduleEvent } from './schedule.js';
+import { buildSeoPage, renderSeoHtml, type SeoDeps } from './seoPage.js';
+import { getSupabaseAdminClient } from './supabaseAdmin.js';
 
 const TEMPLATE_TTL_MS = 60_000;
 let templateCache: { html: string; origin: string; expiresAt: number } | null = null;
@@ -67,14 +66,14 @@ const deps: SeoDeps = {
   },
 };
 
-async function handler(req: any, res: any) {
+export async function handlePublicSeoPage(req: any, res: any) {
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     res.setHeader('Allow', 'GET, HEAD');
     res.status(405).json({ error: 'Method not allowed' });
     return;
   }
 
-  const rawPath = typeof req.query?.path === 'string' ? req.query.path : '/';
+  const rawPath = typeof req.query?.p === 'string' ? req.query.p : '/';
   const host = req.headers['x-forwarded-host'] ?? req.headers.host;
   const proto = req.headers['x-forwarded-proto'] ?? 'https';
   const origin = `${proto}://${host}`;
@@ -101,5 +100,3 @@ async function handler(req: any, res: any) {
   }
   res.send(html);
 }
-
-export default withLogging('/api/seo', handler);

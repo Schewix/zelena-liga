@@ -10,6 +10,7 @@ import { handleAdminDocumentUpload } from '../api-lib/content/documents/upload.j
 import { handleAdminLeague,handlePublicLeague } from '../api-lib/content/league.js';
 import { handleAdminScheduleEvent,handleAdminScheduleEvents,handlePublicSchedule } from '../api-lib/content/schedule.js';
 import { handleAdminLogin,handleAdminLogout,handleAdminSession } from '../api-lib/content/session.js';
+import { handlePublicSeoPage } from '../api-lib/content/seoHandler.js';
 import { handlePublicSitemap } from '../api-lib/content/sitemap.js';
 import { withLogging } from '../api-lib/logger.js';
 
@@ -55,6 +56,11 @@ async function handler(req: any, res: any) {
       await handlePublicDetail(req, res, articleSlug);
       return;
     }
+  }
+
+  if (segments[0] === 'seo') {
+    await handlePublicSeoPage(req, res);
+    return;
   }
 
   if (segments[0] === 'sitemap') {

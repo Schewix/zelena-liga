@@ -257,7 +257,7 @@
     },
     {
       "source": "/aplikace/(.*)",
-      "destination": "/api/seo?path=/aplikace/$1"
+      "destination": "/api/content?path=seo&p=/aplikace/$1"
     },
     {
       "source": "/deskovky",
@@ -301,27 +301,27 @@
     },
     {
       "source": "/souteze",
-      "destination": "/api/seo?path=/souteze"
+      "destination": "/api/content?path=seo&p=/souteze"
     },
     {
       "source": "/souteze/(.*)",
-      "destination": "/api/seo?path=/souteze/$1"
+      "destination": "/api/content?path=seo&p=/souteze/$1"
     },
     {
       "source": "/zelena-liga",
-      "destination": "/api/seo?path=/zelena-liga"
+      "destination": "/api/content?path=seo&p=/zelena-liga"
     },
     {
       "source": "/aktualni-poradi",
-      "destination": "/api/seo?path=/aktualni-poradi"
+      "destination": "/api/content?path=seo&p=/aktualni-poradi"
     },
     {
       "source": "/plan-akci",
-      "destination": "/api/seo?path=/plan-akci"
+      "destination": "/api/content?path=seo&p=/plan-akci"
     },
     {
       "source": "/aplikace",
-      "destination": "/api/seo?path=/aplikace"
+      "destination": "/api/content?path=seo&p=/aplikace"
     },
     {
       "source": "/admin",
@@ -333,27 +333,27 @@
     },
     {
       "source": "/oddily",
-      "destination": "/api/seo?path=/oddily"
+      "destination": "/api/content?path=seo&p=/oddily"
     },
     {
       "source": "/oddily/(.*)",
-      "destination": "/api/seo?path=/oddily/$1"
+      "destination": "/api/content?path=seo&p=/oddily/$1"
     },
     {
       "source": "/fotogalerie",
-      "destination": "/api/seo?path=/fotogalerie"
+      "destination": "/api/content?path=seo&p=/fotogalerie"
     },
     {
       "source": "/fotogalerie/(.*)",
-      "destination": "/api/seo?path=/fotogalerie/$1"
+      "destination": "/api/content?path=seo&p=/fotogalerie/$1"
     },
     {
       "source": "/clanky",
-      "destination": "/api/seo?path=/clanky"
+      "destination": "/api/content?path=seo&p=/clanky"
     },
     {
       "source": "/clanky/(.*)",
-      "destination": "/api/seo?path=/clanky/$1"
+      "destination": "/api/content?path=seo&p=/clanky/$1"
     },
     {
       "source": "/historie",
@@ -361,23 +361,23 @@
     },
     {
       "source": "/o-spto",
-      "destination": "/api/seo?path=/o-spto"
+      "destination": "/api/content?path=seo&p=/o-spto"
     },
     {
       "source": "/sponzori",
-      "destination": "/api/seo?path=/sponzori"
+      "destination": "/api/content?path=seo&p=/sponzori"
     },
     {
       "source": "/tipy",
-      "destination": "/api/seo?path=/tipy"
+      "destination": "/api/content?path=seo&p=/tipy"
     },
     {
       "source": "/kontakty",
-      "destination": "/api/seo?path=/kontakty"
+      "destination": "/api/content?path=seo&p=/kontakty"
     },
     {
       "source": "/kontakty/(.*)",
-      "destination": "/api/seo?path=/kontakty/$1"
+      "destination": "/api/content?path=seo&p=/kontakty/$1"
     },
     {
       "source": "/redakce",
