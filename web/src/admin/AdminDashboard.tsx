@@ -39,7 +39,6 @@ AdminLiveMapSection,
 AdminLiveOverviewSection,
 AdminQueuesSection,
 AdminResultsSection,
-AdminStartsSection,
 AdminStatsSection,
 } from './components/AdminOverviewSections';
 import AdminSectionNav from './components/AdminSectionNav';
@@ -1848,7 +1847,6 @@ export function AdminDashboard({
           />
         ) : null}
 
-        {isPatrolsPage ? <AdminStartsSection eventId={activeEventId} accessToken={accessToken} /> : null}
 
         {isStationsPage ? (
         <TargetAnswersSection

@@ -121,7 +121,7 @@ export function AdminDashboardSection({
           <strong>{summary.syncConflicts}</strong>
         </article>
         <article className="admin-dashboard-live-status-item">
-          <span>Poslední sync</span>
+          <span>Poslední obnovení</span>
           <strong>{formatDateTimeForStatus(summary.lastSyncAt)}</strong>
         </article>
       </div>
@@ -147,7 +147,7 @@ export function AdminDashboardSection({
           <strong>{summary.problematicStations}</strong>
         </article>
         <article className="admin-dashboard-metric admin-dashboard-metric--primary">
-          <span>Poslední synchronizace</span>
+          <span>Poslední obnovení</span>
           <strong>{formatDateTimeForStatus(summary.lastSyncAt)}</strong>
         </article>
       </div>
@@ -204,10 +204,10 @@ export function AdminLiveOverviewSection({
       <div className="admin-live-status-panel">
         <div className="admin-live-status-panel-row">
           <span className={`admin-status-badge ${hasCriticalIssue ? 'admin-status-badge--offline' : 'admin-status-badge--online'}`}>
-            {hasCriticalIssue ? 'Problém synchronizace' : 'Synchronizace v pořádku'}
+            {hasCriticalIssue ? 'Vyžaduje kontrolu' : 'Vše v pořádku'}
           </span>
           <span className="admin-status-badge admin-status-badge--unknown">
-            Poslední sync: {formatDateTimeForStatus(summary.lastSyncAt)}
+            Poslední obnovení: {formatDateTimeForStatus(summary.lastSyncAt)}
           </span>
         </div>
       </div>
@@ -464,222 +464,6 @@ export function AdminQueuesSection({ waiting, serving, waitingSinceMs }: AdminQu
           <strong>Maximální čekání</strong>
           <span>{maxWait === null ? '—' : formatQueueWait(maxWait)}</span>
         </div>
-      </div>
-    </section>
-  );
-}
-
-type StartPatrolRow = {
-  id: string;
-  patrol_code: string | null;
-  team_name: string | null;
-  category: string | null;
-  sex: string | null;
-  active: boolean | null;
-};
-
-type StartTimingRow = {
-  patrol_id: string;
-  start_time: string | null;
-};
-
-type StartScheduleRow = StartPatrolRow & {
-  startTime: string | null;
-};
-
-function toDateTimeLocalValue(value: string | null) {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  const offset = date.getTimezoneOffset() * 60_000;
-  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
-}
-
-function formatStartTime(value: string | null) {
-  if (!value) return 'Nenaplánováno';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'Neplatný čas';
-  return new Intl.DateTimeFormat('cs-CZ', {
-    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
-  }).format(date);
-}
-
-function csvCell(value: string) {
-  return `"${value.replace(/"/g, '""')}"`;
-}
-
-function escapeHtml(value: string) {
-  return value.replace(/[&<>"']/g, (character) => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;',
-  })[character] ?? character);
-}
-
-export function AdminStartsSection({ eventId, accessToken }: { eventId: string; accessToken: string | null }) {
-  const [rows, setRows] = useState<StartScheduleRow[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
-
-  const callStartsApi = async (payload: Record<string, unknown>) => {
-    if (!API_BASE_URL || !accessToken) {
-      throw new Error('Chybí konfigurace admin API nebo přístupový token.');
-    }
-    const response = await fetch(`${API_BASE_URL}/admin/event-state?setup=1`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...payload, event_id: eventId }),
-    });
-    const body = await response.json().catch(() => null);
-    if (!response.ok) {
-      throw new Error(body?.error || `Požadavek selhal (${response.status}).`);
-    }
-    return body;
-  };
-
-  const loadSchedule = async () => {
-    setLoading(true);
-    setError(null);
-    let data: {
-      patrols?: StartPatrolRow[];
-      timings?: StartTimingRow[];
-    };
-    try {
-      data = await callStartsApi({ action: 'load_start_schedule' });
-    } catch (loadError) {
-      console.error('Failed to load start schedule', loadError);
-      setLoading(false);
-      setRows([]);
-      setError('Nepodařilo se načíst startovku.');
-      return;
-    }
-    setLoading(false);
-
-    const timingByPatrol = new Map(
-      (data.timings ?? []).map((timing) => [timing.patrol_id, timing.start_time]),
-    );
-    const nextRows = (data.patrols ?? [])
-      .filter((patrol) => patrol.active !== false)
-      .map((patrol) => ({ ...patrol, startTime: timingByPatrol.get(patrol.id) ?? null }));
-    setRows(nextRows);
-  };
-
-  useEffect(() => {
-    void loadSchedule();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventId]);
-
-  const collisions = useMemo(() => {
-    const groups = new Map<string, StartScheduleRow[]>();
-    rows.forEach((row) => {
-      if (!row.startTime) return;
-      const date = new Date(row.startTime);
-      if (Number.isNaN(date.getTime())) return;
-      const key = date.toISOString();
-      groups.set(key, [...(groups.get(key) ?? []), row]);
-    });
-    return Array.from(groups.entries()).filter(([, patrols]) => patrols.length > 1);
-  }, [rows]);
-
-  const saveStarts = async (updates: Array<{ patrol_id: string; start_time: string }>, success: string) => {
-    setSaving(true);
-    setError(null);
-    setMessage(null);
-    let saveError: unknown = null;
-    try {
-      await callStartsApi({ action: 'save_start_times', updates });
-    } catch (error) {
-      saveError = error;
-    }
-    setSaving(false);
-    if (saveError) {
-      console.error('Failed to save start schedule', saveError);
-      setError('Startovní časy se nepodařilo uložit.');
-      return false;
-    }
-    setMessage(success);
-    await loadSchedule();
-    return true;
-  };
-
-  const updateOneStart = async (row: StartScheduleRow, value: string) => {
-    const date = new Date(value);
-    if (!value || Number.isNaN(date.getTime())) {
-      setError('Zadej platný startovní čas.');
-      return;
-    }
-    await saveStarts([{ patrol_id: row.id, start_time: date.toISOString() }], `Start hlídky ${row.patrol_code ?? row.team_name ?? ''} byl změněn.`);
-  };
-
-  const exportCsv = () => {
-    const lines = [
-      ['Kód', 'Název', 'Kategorie', 'Start'].map(csvCell).join(';'),
-      ...rows.map((row) => [
-        row.patrol_code ?? '', row.team_name ?? '', `${row.category ?? ''}${row.sex ?? ''}`,
-        row.startTime ? formatStartTime(row.startTime) : '',
-      ].map(csvCell).join(';')),
-    ];
-    const blob = new Blob([`\uFEFF${lines.join('\n')}`], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'startovka.csv';
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const printSchedule = () => {
-    const popup = window.open('', '_blank', 'noopener,noreferrer');
-    if (!popup) {
-      setError('Pro tisk povol v prohlížeči vyskakovací okna.');
-      return;
-    }
-    const body = rows.map((row) => `<tr><td>${escapeHtml(row.patrol_code ?? '')}</td><td>${escapeHtml(row.team_name ?? '')}</td><td>${escapeHtml(`${row.category ?? ''}${row.sex ?? ''}`)}</td><td>${escapeHtml(formatStartTime(row.startTime))}</td></tr>`).join('');
-    popup.document.write(`<!doctype html><html lang="cs"><head><title>Startovka</title><style>body{font:14px system-ui;padding:24px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #bbb;padding:7px;text-align:left}h1{font-size:22px}</style></head><body><h1>Startovka</h1><table><thead><tr><th>Kód</th><th>Hlídka</th><th>Kategorie</th><th>Start</th></tr></thead><tbody>${body}</tbody></table><script>window.onload=()=>window.print()<\/script></body></html>`);
-    popup.document.close();
-  };
-
-  return (
-    <section
-      id={toAdminSectionId('starts')}
-      className="admin-card admin-card--section admin-section-block admin-section-block--starts"
-    >
-      <header className="admin-card-header">
-        <div>
-          <h2>Startovní časy</h2>
-          <p className="admin-card-subtitle">
-            Ruční úpravy startovních časů a export startovky.
-          </p>
-        </div>
-      </header>
-      <div className="admin-start-controls">
-        <button type="button" className="admin-button admin-button--secondary" disabled={loading} onClick={() => void loadSchedule()}>
-          {loading ? 'Načítám…' : 'Obnovit'}
-        </button>
-        <button type="button" className="admin-button admin-button--secondary" disabled={rows.length === 0} onClick={exportCsv}>Export CSV</button>
-        <button type="button" className="admin-button admin-button--secondary" disabled={rows.length === 0} onClick={printSchedule}>Tisk</button>
-      </div>
-      {error ? <p className="admin-error">{error}</p> : null}
-      {message ? <p className="admin-success">{message}</p> : null}
-      <p className={collisions.length > 0 ? 'admin-error' : 'admin-notice'}>
-        {collisions.length > 0
-          ? `${collisions.length} kolizí: více hlídek má stejný startovní čas.`
-          : 'Bez kolizí startovních časů.'}
-      </p>
-      <div className="admin-start-table-wrap">
-        <table className="admin-start-table">
-          <thead><tr><th>Kód</th><th>Hlídka</th><th>Kategorie</th><th>Start</th><th>Ruční změna</th></tr></thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.id} className={row.startTime && collisions.some(([, patrols]) => patrols.some((patrol) => patrol.id === row.id)) ? 'admin-start-row--collision' : undefined}>
-                <td><strong>{row.patrol_code || '—'}</strong></td><td>{row.team_name || '—'}</td><td>{row.category ?? ''}{row.sex ?? ''}</td>
-                <td>{formatStartTime(row.startTime)}</td>
-                <td><input aria-label={`Start hlídky ${row.patrol_code ?? row.team_name ?? ''}`} type="datetime-local" defaultValue={toDateTimeLocalValue(row.startTime)} disabled={saving} onBlur={(event) => { if (event.target.value !== toDateTimeLocalValue(row.startTime)) void updateOneStart(row, event.target.value); }} /></td>
-              </tr>
-            ))}
-            {!loading && rows.length === 0 ? <tr><td colSpan={5}>Žádné aktivní hlídky.</td></tr> : null}
-          </tbody>
-        </table>
       </div>
     </section>
   );

@@ -3,7 +3,6 @@ export type AdminSectionKey =
   | 'live'
   | 'queues'
   | 'patrols'
-  | 'starts'
   | 'stations'
   | 'results'
   | 'stats'

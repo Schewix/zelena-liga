@@ -1,4 +1,3 @@
-import { loadStartSchedule, saveStartTimes } from './actions/startSchedule.js';
 import { loadLiveMap } from './actions/liveMap.js';
 import { targetAnswers } from './actions/targetAnswers.js';
 import { hasAtLeastOneFullName,normalizeAllowedCategories,normalizeAllowedTasks,normalizeEmail,normalizePatrolMembers,normalizeStationCode,normalizeStationOrderPayload,normalizeStationSplitCategories,normalizeText,parseIsoOrNull,toNonNegativeInt } from './validation.js';
@@ -26,9 +25,7 @@ export async function handleSetupAction(
 
   if (action === 'load_live_map' || action === 'load_live_map_events') { return loadLiveMap(supabaseAdmin, payload, res); }
 
-  if (action === 'load_start_schedule') { return loadStartSchedule(supabaseAdmin, currentEventId, payload, res); }
 
-  if (action === 'save_start_times') { return saveStartTimes(supabaseAdmin, currentEventId, payload, res); }
 
   if (action === 'load_target_answers' || action === 'save_target_answers') { return targetAnswers(supabaseAdmin, payload, res); }
 
