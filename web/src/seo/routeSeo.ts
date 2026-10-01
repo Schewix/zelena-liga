@@ -2,7 +2,8 @@
 export const SITE_URL = 'https://www.zelenaliga.cz';
 export const DEFAULT_SEO = {
   title: 'Zelená liga | zelenaliga.cz',
-  description: 'Zelená liga pro rozhodčí, veřejný přehled výsledků, soutěže, oddíly a fotogalerie.',
+  description:
+    'Zelená liga je celoroční soutěž pionýrských tábornických oddílů SPTO Brno: body za účast a výkony hlídek na akcích jako Setonův závod, ZaPsem nebo Deskové hry.',
 };
 
 export const ROUTE_SEO: Record<string, { title: string; description: string }> = {
@@ -65,7 +66,7 @@ export const ROUTE_SEO: Record<string, { title: string; description: string }> =
   },
   '/souteze': {
     title: 'Soutěže | Zelená liga',
-    description: 'Přehled soutěží Zelené ligy, pravidla a informace pro oddíly.',
+    description: 'Soutěže Zelené ligy SPTO Brno: jak se počítají body oddílů, kategorie, pravidla a přehled akcí (Setonův závod, ZaPsem, Deskové hry a další).',
   },
   '/souteze/brnenske-bloudeni': {
     title: 'Brněnské bloudění | Zelená liga',

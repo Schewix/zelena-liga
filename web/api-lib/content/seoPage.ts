@@ -277,7 +277,8 @@ export async function buildSeoPage(rawPath: string, deps: SeoDeps): Promise<SeoP
 
   if (path === '/souteze' || path === '/') {
     const list = `<h2>Soutěže Zelené ligy</h2><ul>${COMPETITIONS.map((item) => `<li><a href="${escapeHtml(item.href)}">${escapeHtml(item.name)}</a>${item.description ? ` – ${escapeHtml(item.description)}` : ''}</li>`).join('')}</ul>`;
-    return staticPage(path, known?.title ?? DEFAULT_SEO.title, known?.description ?? DEFAULT_SEO.description, list);
+    const page = staticPage(path, known?.title ?? DEFAULT_SEO.title, known?.description ?? DEFAULT_SEO.description, list);
+    return page;
   }
 
   if (competition) {

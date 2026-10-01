@@ -1,6 +1,13 @@
 # Zelená liga (zelenaliga.cz)
 
-> Zelená liga je soutěž tábornických oddílů SPTO Brno (Sdružení pionýrských tábornických oddílů). Web shrnuje soutěže ligy, aktuální pořadí oddílů, plán akcí, články, profily oddílů a fotogalerii.
+> Zelená liga je celoroční soutěž pionýrských tábornických oddílů (PTO) sdružených v SPTO Brno (Sdružení pionýrských tábornických oddílů). Oddíly sbírají body za účast a výkony svých hlídek na soutěžních akcích; pořadí oddílů určuje součet bodů ze všech akcí ročníku. Ročník odpovídá školnímu roku. V aktuálním ročníku jsou akce ZaPsem, Deskové hry a Setonův závod.
+
+## Jak Zelená liga funguje
+- Soutěží oddíly; na akcích za ně závodí hlídky (v Setonově závodě tříčlenné), u soutěží jednotlivců jeden soutěžící.
+- Věkové kategorie hlídek: N (nejmladší), M (mladší), S (starší), R (rádci), zvlášť dívky a hoši (8 kategorií).
+- Body: 10 bodů za účast oddílu na akci; za výkon se výsledková listina kategorie dělí na sedminy (16, 12, 9, 6, 4, 2, 1 bod); do hodnocení oddílu se počítají nejvýše čtyři nejlepší hlídky; body za výkony se násobí koeficientem akce 1 až 2.
+- Pravidla schvaluje Sněm SPTO, ligu organizuje Štáb SPTO; pořadatelem je SPTO Brno z pověření Jihomoravské krajské organizace Pionýra.
+- V Setonově závodě získává putovní cenu první nesmíšená hlídka z jednoho oddílu v každé z osmi kategorií.
 
 ## Hlavní stránky
 - [Soutěže](https://www.zelenaliga.cz/souteze): přehled soutěží Zelené ligy (Setonův závod, Dračí smyčka, Kosmův prostor, deskové hry, Brněnské bloudění a další)

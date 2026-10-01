@@ -70,7 +70,7 @@ describe('seo prerender', () => {
 
   it('does not duplicate Organization JSON-LD already present in the template', async () => {
     const page = await buildSeoPage('/souteze', deps);
-    expect(page.jsonLd).toHaveLength(0);
+    expect(page.jsonLd.some((item) => item['@type'] === 'Organization')).toBe(false);
   });
 
   it('returns 404 noindex for a missing article', async () => {
