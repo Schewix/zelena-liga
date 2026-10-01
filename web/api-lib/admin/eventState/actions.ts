@@ -1,3 +1,4 @@
+import { targetAnswers } from './actions/targetAnswers.js';
 import { hasAtLeastOneFullName,normalizeAllowedCategories,normalizeAllowedTasks,normalizeEmail,normalizePatrolMembers,normalizeStationCode,normalizeStationOrderPayload,normalizeStationSplitCategories,normalizeText,parseIsoOrNull,toNonNegativeInt } from './validation.js';
 import { createEvent } from './actions/createEvent.js';
 import { saveStationOrder } from './actions/saveStationOrder.js';
@@ -20,6 +21,8 @@ export async function handleSetupAction(
   if (!action) {
     return res.status(400).json({ error: 'Missing action.' });
   }
+
+  if (action === 'load_target_answers' || action === 'save_target_answers') { return targetAnswers(supabaseAdmin, payload, res); }
 
   if (action === 'create_event') { return createEvent(supabaseAdmin, currentEventId, payload, res); }
 

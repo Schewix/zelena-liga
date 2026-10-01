@@ -17,7 +17,6 @@ ANSWER_CATEGORIES,
 CategoryKey,
 isCategoryKey,
 normalizeAnswersInput,
-packAnswersForStorage,
 parseAnswerLetters,
 type TargetAnswerOptionCount,
 } from '../utils/targetAnswers';
@@ -199,57 +198,63 @@ export function AdminDashboard({
     window.localStorage.setItem(SETUP_SELECTED_EVENT_STORAGE_KEY, selectedSetupEventId);
   }, [selectedSetupEventId]);
 
+  const postSetupAction = useCallback(
+    async (action: string, payload: Record<string, unknown>) => {
+      if (!API_BASE_URL) {
+        throw new Error('Chybí konfigurace API (VITE_AUTH_API_URL).');
+      }
+      if (!accessToken) {
+        throw new Error('Chybí přístupový token.');
+      }
+      const response = await fetch(`${API_BASE_URL}/admin/event-state?setup=1`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ action, ...payload }),
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok) {
+        const message = [body?.error || `Akce ${action} selhala.`, body?.detail].filter(Boolean).join(' ');
+        throw new Error(message);
+      }
+      return body;
+    },
+    [accessToken],
+  );
+
   const loadAnswers = useCallback(async () => {
-    const answersEventId = activeEventId;
-    const answersEventName =
-      setupEvents.find((row) => row.id === answersEventId)?.name ?? answersEventId;
-    const targetStation = setupStations.find(
-      (station) =>
-        station.event_id === answersEventId &&
-        normalizeText(station.code).toUpperCase() === 'T',
-    );
-    const answersStationId = targetStation?.id || (answersEventId === eventId ? stationId : '');
-
-    if (!answersStationId) {
-      setAnswersError(`Pro ročník "${answersEventName}" chybí stanoviště T.`);
-      setAnswersForm(createEmptyAnswers());
-      setAnswersSummary(createEmptySummary());
-      return;
-    }
-
     setAnswersLoading(true);
     setAnswersError(null);
-    const { data, error } = await supabase
-      .from('station_category_answers')
-      .select('category, correct_answers, updated_at')
-      .eq('event_id', answersEventId)
-      .eq('station_id', answersStationId);
-    setAnswersLoading(false);
+    try {
+      const result = await postSetupAction('load_target_answers', { event_id: activeEventId });
+      const data = result.answers as Array<{ category: string; correct_answers: string; updated_at: string | null }>;
+      const form = createEmptyAnswers();
+      const summary = createEmptySummary();
+      (data ?? []).forEach((row) => {
+        const category = typeof row.category === 'string' ? row.category.trim().toUpperCase() : '';
+        if (!isCategoryKey(category)) {
+          return;
+        }
+        const packed = typeof row.correct_answers === 'string' ? row.correct_answers : '';
+        form[category] = normalizeAnswersInput(packed);
+        summary[category] = {
+          letters: parseAnswerLetters(packed),
+          updatedAt: row.updated_at ?? null,
+        };
+      });
 
-    if (error) {
-      console.error('Failed to load category answers', error);
-      setAnswersError('Nepodařilo se načíst správné odpovědi.');
-      return;
+      setAnswersForm(form);
+      setAnswersSummary(summary);
+      return true;
+    } catch (error) {
+      setAnswersError(error instanceof Error ? error.message : 'Nepodařilo se načíst správné odpovědi.');
+      return false;
+    } finally {
+      setAnswersLoading(false);
     }
-
-    const form = createEmptyAnswers();
-    const summary = createEmptySummary();
-    (data ?? []).forEach((row) => {
-      const category = typeof row.category === 'string' ? row.category.trim().toUpperCase() : '';
-      if (!isCategoryKey(category)) {
-        return;
-      }
-      const packed = typeof row.correct_answers === 'string' ? row.correct_answers : '';
-      form[category] = normalizeAnswersInput(packed);
-      summary[category] = {
-        letters: parseAnswerLetters(packed),
-        updatedAt: row.updated_at ?? null,
-      };
-    });
-
-    setAnswersForm(form);
-    setAnswersSummary(summary);
-  }, [activeEventId, eventId, setupEvents, setupStations, stationId]);
+  }, [activeEventId, postSetupAction]);
 
   const loadStationStats = useCallback(async () => {
     setStationLoading(true);
@@ -698,32 +703,6 @@ export function AdminDashboard({
     }
   }, [accessToken, eventId]);
 
-  const postSetupAction = useCallback(
-    async (action: string, payload: Record<string, unknown>) => {
-      if (!API_BASE_URL) {
-        throw new Error('Chybí konfigurace API (VITE_AUTH_API_URL).');
-      }
-      if (!accessToken) {
-        throw new Error('Chybí přístupový token.');
-      }
-      const response = await fetch(`${API_BASE_URL}/admin/event-state?setup=1`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ action, ...payload }),
-      });
-      const body = await response.json().catch(() => null);
-      if (!response.ok) {
-        const message = body?.error || `Akce ${action} selhala.`;
-        throw new Error(message);
-      }
-      return body;
-    },
-    [accessToken],
-  );
-
   const selectedSetupStations = useMemo(
     () =>
       setupStations
@@ -1136,92 +1115,35 @@ export function AdminDashboard({
     setAnswersError(null);
     setAnswersSuccess(null);
 
-    const answersEventId = activeEventId;
-    const targetStation = setupStations.find(
-      (station) =>
-        station.event_id === answersEventId &&
-        normalizeText(station.code).toUpperCase() === 'T',
-    );
-    const answersStationId = targetStation?.id || (answersEventId === eventId ? stationId : '');
-    if (!answersStationId) {
-      setAnswersError(`Pro ročník "${selectedSetupEvent?.name ?? answersEventId}" chybí stanoviště T.`);
-      return;
-    }
-
-    const updates: { event_id: string; station_id: string; category: string; correct_answers: string }[] = [];
-    const deletions: string[] = [];
-
+    const answers = Object.fromEntries(ANSWER_CATEGORIES.map((category) => [category, normalizeAnswersInput(answersForm[category])]));
+    const pattern = answersTargetOptionCount === 3 ? /^[A-C]{12}$/ : /^[A-D]{12}$/;
     for (const category of ANSWER_CATEGORIES) {
-      const packed = packAnswersForStorage(answersForm[category], { maxOptionCount: answersTargetOptionCount });
-      if (!packed) {
-        if (answersSummary[category].letters.length) {
-          deletions.push(category);
-        }
-        continue;
-      }
-      if (packed.length !== 12) {
-        setAnswersError(`Kategorie ${category} musí mít 12 odpovědí.`);
+      if (answers[category] && !pattern.test(answers[category])) {
+        setAnswersError(`Kategorie ${category} musí mít 12 odpovědí ${answersTargetOptionCount === 3 ? 'A–C' : 'A–D'}.`);
         return;
       }
-      updates.push({
-        event_id: answersEventId,
-        station_id: answersStationId,
-        category,
-        correct_answers: packed,
-      });
     }
 
     setAnswersSaving(true);
 
     try {
-      await postSetupAction('save_event_scoring_config', {
-        event_id: answersEventId,
+      await postSetupAction('save_target_answers', {
+        event_id: activeEventId,
         target_answer_option_count: answersTargetOptionCount,
+        answers,
       });
 
-      if (updates.length) {
-        const { error } = await supabase
-          .from('station_category_answers')
-          .upsert(updates, { onConflict: 'event_id,station_id,category' });
-        if (error) {
-          throw error;
-        }
-      }
-
-      if (deletions.length) {
-        const { error } = await supabase
-          .from('station_category_answers')
-          .delete()
-          .in('category', deletions)
-          .eq('event_id', answersEventId)
-          .eq('station_id', answersStationId);
-        if (error) {
-          throw error;
-        }
-      }
-
-      await loadAnswers();
+      const loaded = await loadAnswers();
       await loadSetupData();
+      if (!loaded) return;
       setAnswersSuccess('Správné odpovědi a počet možností byly uloženy do databáze.');
     } catch (error) {
       console.error('Failed to save category answers', error);
-      setAnswersError('Uložení správných odpovědí nebo nastavení možností selhalo.');
+      setAnswersError(error instanceof Error ? error.message : 'Uložení správných odpovědí selhalo.');
     } finally {
       setAnswersSaving(false);
     }
-  }, [
-    activeEventId,
-    answersForm,
-    answersSummary,
-    eventId,
-    loadAnswers,
-    loadSetupData,
-    postSetupAction,
-    selectedSetupEvent,
-    setupStations,
-    stationId,
-    answersTargetOptionCount,
-  ]);
+  }, [activeEventId, answersForm, answersTargetOptionCount, loadAnswers, loadSetupData, postSetupAction]);
 
   const handleToggleLock = useCallback(
     async (locked: boolean) => {
@@ -1929,7 +1851,7 @@ export function AdminDashboard({
         {isStationsPage ? (
         <TargetAnswersSection
 targetAnswerInputHint={targetAnswerInputHint}
-loadAnswers={loadAnswers}
+loadAnswers={async () => { await loadAnswers(); }}
 answersLoading={answersLoading}
 answersError={answersError}
 answersSuccess={answersSuccess}

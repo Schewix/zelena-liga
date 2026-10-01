@@ -26,24 +26,31 @@ function resolveRequestUrl(input: RequestInfo | URL): string {
 }
 
 function isSupabaseRequest(url: string) {
-  return SUPABASE_URL && url.startsWith(SUPABASE_URL);
+  if (!SUPABASE_URL) return false;
+  try {
+    const target = new URL(url);
+    const base = new URL(SUPABASE_URL);
+    return target.origin === base.origin
+      && (target.pathname === base.pathname || target.pathname.startsWith(`${base.pathname.replace(/\/$/, '')}/`));
+  } catch {
+    return false;
+  }
 }
 
 if (shouldWrapFetch(globalThis.fetch)) {
   const nativeFetch = globalThis.fetch;
   const wrappedFetch: typeof fetch & { [WRAP_MARKER]?: boolean } = async (input, init) => {
     const accessToken = await getAccessToken();
-    if (!accessToken) {
-      return nativeFetch(input, init);
-    }
-
     const url = resolveRequestUrl(input);
     const baseHeaders = init?.headers ?? (input instanceof Request ? input.headers : undefined);
     const headers = new Headers(baseHeaders);
 
     if (isSupabaseRequest(url)) {
-      headers.set('Authorization', `Bearer ${accessToken}`);
-    } else if (!headers.has('Authorization')) {
+      if (!headers.has('apikey') && env.VITE_SUPABASE_ANON_KEY) {
+        headers.set('apikey', env.VITE_SUPABASE_ANON_KEY);
+      }
+      if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`);
+    } else if (accessToken && !headers.has('Authorization')) {
       headers.set('Authorization', `Bearer ${accessToken}`);
     }
 
