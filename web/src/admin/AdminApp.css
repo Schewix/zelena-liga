@@ -1689,3 +1689,17 @@
   }
 
 }
+
+.admin-setup-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.admin-setup-section-content:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}

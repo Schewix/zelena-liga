@@ -1041,9 +1041,6 @@ export function AdminResultsSection({
             ? `Potvrzeno ${formatDateTimeForStatus(resultsConfirmedAt)}`
             : 'Potvrdit výsledky hlavním rozhodčím'}
         </button>
-        <a className="admin-button admin-button--primary admin-button--cta" href="/redakce#body-zl">
-          Výpočet bodů ZL v redakci
-        </a>
       </div>
       {confirmationMessage ? <p className={resultsConfirmedAt ? 'admin-success' : 'admin-error'}>{confirmationMessage}</p> : null}
     </section>
@@ -1530,9 +1527,6 @@ export function AdminExportsOverviewSection({
             >
               {exportingNames ? 'Exportuji…' : 'Export kontrola jmen'}
             </button>
-            <a className="admin-button admin-button--secondary" href="/redakce#body-zl">
-              Výpočet bodů ZL v redakci
-            </a>
           </div>
           <p className="admin-card-subtitle">
             TODO: audit log, offline queue/debug, diagnostika synchronizace a API nástroje.

@@ -1,3 +1,4 @@
+import { CollapsibleSetupSection } from './components/CollapsibleSetupSection';
 import ExcelJS from 'exceljs';
 import { useCallback,useEffect,useMemo,useState } from 'react';
 import AppFooter from '../components/AppFooter';
@@ -50,11 +51,11 @@ type AdminStationHealthCard
 import { buildPatrolCodeVariants,comparePatrolOrder,downloadWorkbook,extractPatrolMembers,parsePatrolCodeParts,toExportFileName,toUniqueWorksheetName,toWorksheetBaseName } from './exports/patrolWorkbook';
 import { BASE_CATEGORY_ORDER,MAYBE_LOST_PATROL_THRESHOLD_MS } from './overview/constants';
 import { SETUP_SELECTED_EVENT_STORAGE_KEY } from './setup/config';
-import { DEFAULT_JUDGE_TASK_PRESET,JUDGE_TASK_PRESETS,createBaseCategoryRecord,createDefaultCategoryToggleState,createDefaultOrderTextState,createDefaultPatrolCounts,createDefaultPatrolStarts,createDefaultSeparatorState,createDefaultSetupEventScoringConfig,getConfiguredStationBaseCategories,getJudgeTasksForPreset,isSameCategoryList,normalizeSetupEventScoringConfig,normalizeSetupStationOrder,normalizeStationSplitCategories,normalizeStationSplitDraft,toJudgeTaskPresetKey } from './setup/model';
+import { DEFAULT_JUDGE_TASK_PRESET,JUDGE_TASK_PRESETS,createBaseCategoryRecord,createDefaultCategoryToggleState,createDefaultOrderTextState,createDefaultPatrolCounts,createDefaultPatrolStarts,createDefaultSeparatorState,createDefaultSetupEventScoringConfig,getConfiguredStationBaseCategories,getJudgeTasksForPreset,normalizeSetupEventScoringConfig,normalizeSetupStationOrder,normalizeStationSplitCategories,toJudgeTaskPresetKey } from './setup/model';
 import { DEFAULT_SETUP_TROOP_OPTIONS,compareTroopSheetOrder,normalizeTroopList,normalizeTroopName,parseTroopNumber,pickCanonicalTroopName,splitMixedTroopNames } from './setup/troops';
 import { DEFAULT_TARGET_ANSWER_OPTION_COUNT,formatMinutesAsTimeInput,parseTimeInputToMinutes,toPositiveInt,toTargetAnswerOptionCount } from './setup/validation';
 import { normalizeText } from './shared/text';
-import { AnswersFormState,AnswersSummary,AuthenticatedState,CategoryToggleState,DisqualifyPatrol,EventState,JudgeTaskPresetKey,MissingDialogState,PatrolCountsState,PatrolStartsState,PatrolSummary,SelectedSetupAssignmentSummary,SetupAssignmentRow,SetupEventRow,SetupEventScoringConfig,SetupJudgeRow,SetupStationOrderPayload,SetupStationOrderRow,SetupStationRow,StationPassageRow,StationSplitDraft } from './types';
+import { AnswersFormState,AnswersSummary,AuthenticatedState,CategoryToggleState,DisqualifyPatrol,EventState,JudgeTaskPresetKey,MissingDialogState,PatrolCountsState,PatrolStartsState,PatrolSummary,SelectedSetupAssignmentSummary,SetupAssignmentRow,SetupEventRow,SetupEventScoringConfig,SetupJudgeRow,SetupStationOrderPayload,SetupStationOrderRow,SetupStationRow,StationPassageRow } from './types';
 import { TargetAnswersSection } from './answers/TargetAnswersSection';
 import { EventScoringSettings } from './setup/EventScoringSettings';
 import { StationPassagesSection } from './overview/StationPassagesSection';
@@ -118,7 +119,6 @@ export function AdminDashboard({
   const [setupJudges, setSetupJudges] = useState<SetupJudgeRow[]>([]);
   const [setupAssignments, setSetupAssignments] = useState<SetupAssignmentRow[]>([]);
   const [setupOrders, setSetupOrders] = useState<Record<string, SetupStationOrderPayload>>({});
-  const [stationSplitDraftById, setStationSplitDraftById] = useState<Record<string, StationSplitDraft>>({});
   const [selectedSetupEventId, setSelectedSetupEventId] = useState(() => {
     if (typeof window === 'undefined') {
       return eventId;
@@ -924,17 +924,6 @@ export function AdminDashboard({
   }, [selectedSetupEventId, setupOrders]);
 
   useEffect(() => {
-    const nextDraftById: Record<string, StationSplitDraft> = {};
-    selectedSetupStations.forEach((station) => {
-      nextDraftById[station.id] = {
-        isSplit: station.isSplit,
-        categories: normalizeStationSplitCategories(station.splitCategories),
-      };
-    });
-    setStationSplitDraftById(nextDraftById);
-  }, [selectedSetupStations]);
-
-  useEffect(() => {
     if (!selectedSetupStations.length) {
       setJudgeStationCodeInput('');
       return;
@@ -945,22 +934,6 @@ export function AdminDashboard({
     }
     setJudgeStationCodeInput(selectedSetupStations[0].code);
   }, [judgeStationCodeInput, selectedSetupStations]);
-
-  const stationSplitDirtyCount = useMemo(() => {
-    return selectedSetupStations.reduce((count, station) => {
-      const source = normalizeStationSplitDraft({
-        isSplit: station.isSplit,
-        categories: station.splitCategories,
-      });
-      const draft = normalizeStationSplitDraft(
-        stationSplitDraftById[station.id] ?? source,
-      );
-      if (source.isSplit !== draft.isSplit || !isSameCategoryList(source.categories, draft.categories)) {
-        return count + 1;
-      }
-      return count;
-    }, 0);
-  }, [selectedSetupStations, stationSplitDraftById]);
 
   const navigateAdminPage = useCallback(
     (page: AdminPageKey, options?: { replace?: boolean }) => {
@@ -1473,97 +1446,6 @@ export function AdminDashboard({
     }
   }, [loadSetupData, postSetupAction, selectedSetupEventId, setupEventScoringConfig]);
 
-  const handleStationSplitToggle = useCallback((stationId: string, checked: boolean) => {
-    setStationSplitDraftById((prev) => {
-      const current = normalizeStationSplitDraft(prev[stationId] ?? { isSplit: false, categories: [] });
-      return {
-        ...prev,
-        [stationId]: {
-          ...current,
-          isSplit: checked,
-        },
-      };
-    });
-  }, []);
-
-  const handleStationSplitCategoryToggle = useCallback((stationId: string, category: CategoryKey, checked: boolean) => {
-    setStationSplitDraftById((prev) => {
-      const current = normalizeStationSplitDraft(prev[stationId] ?? { isSplit: false, categories: [] });
-      const nextSet = new Set(current.categories);
-      if (checked) {
-        nextSet.add(category);
-      } else {
-        nextSet.delete(category);
-      }
-      return {
-        ...prev,
-        [stationId]: {
-          ...current,
-          categories: BASE_CATEGORY_ORDER.filter((value) => nextSet.has(value)),
-        },
-      };
-    });
-  }, []);
-
-  const handleSaveStationSplitConfig = useCallback(async () => {
-    setSetupError(null);
-    setSetupSuccess(null);
-    setJudgeTemporaryPassword(null);
-
-    if (!selectedSetupEventId) {
-      setSetupError('Vyber ročník.');
-      return;
-    }
-
-    const updates: Array<{
-      station_id: string;
-      is_split: boolean;
-      split_categories: CategoryKey[];
-    }> = [];
-
-    for (const station of selectedSetupStations) {
-      const source = normalizeStationSplitDraft({
-        isSplit: station.isSplit,
-        categories: station.splitCategories,
-      });
-      const draft = normalizeStationSplitDraft(
-        stationSplitDraftById[station.id] ?? source,
-      );
-      if (draft.isSplit && draft.categories.length === 0) {
-        setSetupError(`Stanoviště ${station.code} je rozdělené, ale nemá zvolené žádné kategorie.`);
-        return;
-      }
-      if (source.isSplit === draft.isSplit && isSameCategoryList(source.categories, draft.categories)) {
-        continue;
-      }
-      updates.push({
-        station_id: station.id,
-        is_split: draft.isSplit,
-        split_categories: draft.isSplit ? draft.categories : [],
-      });
-    }
-
-    if (updates.length === 0) {
-      setSetupSuccess('Není co ukládat. Nastavení stanovišť je beze změn.');
-      return;
-    }
-
-    setSetupSaving(true);
-    try {
-      await postSetupAction('save_station_split_config', {
-        event_id: selectedSetupEventId,
-        updates,
-      });
-      setSetupSuccess('Nastavení rozdělení stanovišť bylo uloženo.');
-      await loadSetupData();
-    } catch (error) {
-      console.error('Failed to save station split config', error);
-      setSetupError(error instanceof Error ? error.message : 'Uložení nastavení stanovišť selhalo.');
-    } finally {
-      setSetupSaving(false);
-    }
-  }, [loadSetupData, postSetupAction, selectedSetupEventId, selectedSetupStations, stationSplitDraftById]);
-
   const handleToggleStationClosed = useCallback(async (stationId: string, nextClosed: boolean) => {
     setSetupError(null);
     setSetupSuccess(null);
@@ -1995,9 +1877,6 @@ export function AdminDashboard({
             >
               {exportingNames ? 'Exportuji…' : 'Export kontrola jmen'}
             </button>
-            <a className="admin-button admin-button--secondary admin-button--pill" href="/redakce#body-zl">
-              Výpočet bodů ZL v redakci
-            </a>
             <button
               type="button"
               className="admin-button admin-button--secondary admin-button--pill"
@@ -2195,84 +2074,6 @@ answersSaving={answersSaving}
                 </button>
               </div>
             </div>
-            <div className="admin-setup-block">
-              <h3>Rozdělení stanovišť pro kategorie</h3>
-              <p className="admin-card-subtitle">
-                Nastavení se použije i v editoru mapy průchodů.
-              </p>
-              <div className="admin-station-split-grid">
-                {selectedSetupStations.length === 0 ? (
-                  <p className="admin-setup-collapsed-note">Pro vybraný ročník nejsou dostupná stanoviště.</p>
-                ) : (
-                  selectedSetupStations.map((station) => {
-                    const sourceDraft = normalizeStationSplitDraft({
-                      isSplit: station.isSplit,
-                      categories: station.splitCategories,
-                    });
-                    const draft = normalizeStationSplitDraft(
-                      stationSplitDraftById[station.id] ?? sourceDraft,
-                    );
-                    const isInvalid = draft.isSplit && draft.categories.length === 0;
-                    const effectiveCategories = getConfiguredStationBaseCategories({
-                      stationCode: station.code,
-                      isSplit: draft.isSplit,
-                      splitCategories: draft.categories,
-                    });
-
-                    return (
-                      <article
-                        key={station.id}
-                        className={`admin-station-split-card ${isInvalid ? 'admin-station-split-card--invalid' : ''}`}
-                      >
-                        <div className="admin-station-split-header">
-                          <div>
-                            <strong>{station.code}</strong>
-                            <p>{station.name || 'Bez názvu'}</p>
-                            <small>Kategorie: {effectiveCategories.join(', ')}</small>
-                          </div>
-                          <label className="admin-check">
-                            <input
-                              type="checkbox"
-                              checked={draft.isSplit}
-                              onChange={(event) => handleStationSplitToggle(station.id, event.target.checked)}
-                            />
-                            <span>Rozdělené</span>
-                          </label>
-                        </div>
-                        <div className="admin-category-toggle-list admin-category-toggle-list--compact">
-                          {BASE_CATEGORY_ORDER.map((category) => (
-                            <label key={`${station.id}-${category}`} className="admin-check">
-                              <input
-                                type="checkbox"
-                                checked={draft.categories.includes(category)}
-                                onChange={(event) =>
-                                  handleStationSplitCategoryToggle(station.id, category, event.target.checked)
-                                }
-                                disabled={!draft.isSplit}
-                              />
-                              <span>{category}</span>
-                            </label>
-                          ))}
-                        </div>
-                        {isInvalid ? (
-                          <p className="admin-error">Rozdělené stanoviště musí mít aspoň jednu kategorii.</p>
-                        ) : null}
-                      </article>
-                    );
-                  })
-                )}
-              </div>
-              <div className="admin-card-actions admin-card-actions--end">
-                <button
-                  type="button"
-                  className="admin-button admin-button--secondary"
-                  onClick={() => void handleSaveStationSplitConfig()}
-                  disabled={setupSaving || selectedSetupStations.length === 0}
-                >
-                  {setupSaving ? 'Ukládám…' : `Uložit nastavení stanovišť${stationSplitDirtyCount > 0 ? ` (${stationSplitDirtyCount})` : ''}`}
-                </button>
-              </div>
-            </div>
             <AdminStationHealthPanel
               stationCards={stationHealthCards}
               assignmentRows={selectedSetupAssignments}
@@ -2321,8 +2122,7 @@ answersSaving={answersSaving}
           {setupError ? <p className="admin-error">{setupError}</p> : null}
           {setupSuccess ? <p className="admin-success">{setupSuccess}</p> : null}
 
-          <div className="admin-setup-block">
-            <h3>Vytvořit nový ročník</h3>
+          <CollapsibleSetupSection title="Vytvořit nový ročník">
             <div className="admin-disqualify-form">
               <label className="admin-field" htmlFor="admin-create-event-name">
                 <span>Název ročníku</span>
@@ -2370,7 +2170,7 @@ answersSaving={answersSaving}
                 {setupSaving ? 'Ukládám…' : 'Vytvořit ročník'}
               </button>
             </div>
-          </div>
+          </CollapsibleSetupSection>
 
           <EventScoringSettings
 setupEventScoringConfig={setupEventScoringConfig}
@@ -2384,8 +2184,7 @@ handleSaveEventScoringConfig={handleSaveEventScoringConfig}
 setupSaving={setupSaving}
 />
 
-          <div className="admin-setup-block">
-            <h3>Pořadí stanovišť podle kategorie</h3>
+          <CollapsibleSetupSection title="Pořadí stanovišť podle kategorie">
             <p className="admin-card-subtitle">
               Pro každou kategorii zadej pořadí kódů stanovišť oddělené čárkou (např. F, U, C…).
             </p>
@@ -2433,10 +2232,9 @@ setupSaving={setupSaving}
                 {setupSaving ? 'Ukládám…' : 'Uložit pořadí stanovišť'}
               </button>
             </div>
-          </div>
+          </CollapsibleSetupSection>
 
-          <div className="admin-setup-block">
-            <h3>Vytvoření hlídek</h3>
+          <CollapsibleSetupSection title="Vytvoření hlídek">
             <p className="admin-card-subtitle">
               Zadej počty hlídek pro jednotlivé kategorie a počáteční čísla kódů.
             </p>
@@ -2487,10 +2285,9 @@ setupSaving={setupSaving}
                 {setupSaving ? 'Ukládám…' : 'Vytvořit hlídky'}
               </button>
             </div>
-          </div>
+          </CollapsibleSetupSection>
 
-          <div className="admin-setup-block">
-            <h3>Smazat všechny body ročníku</h3>
+          <CollapsibleSetupSection title="Smazat všechny body ročníku">
             <p className="admin-card-subtitle">
               Smaže bodování, průchody, čekání a odpovědi terčového úseku pro vybraný ročník.
             </p>
@@ -2512,7 +2309,7 @@ setupSaving={setupSaving}
                 {setupSaving ? 'Zpracovávám…' : 'Smazat nevyplněné hlídky'}
               </button>
             </div>
-          </div>
+          </CollapsibleSetupSection>
         </section>
         ) : null}
 
@@ -2643,13 +2440,6 @@ handleOpenStationMissing={handleOpenStationMissing}
         />
         ) : null}
 
-        {isSettingsPage ? (
-          <section className="admin-card admin-card--section">
-            <h2>Body Zelené ligy</h2>
-            <p>Návrhy pásem, import výsledků a součet oddílů najdeš v redakci. Nahraj tam export výsledků závodu.</p>
-            <a className="admin-button admin-button--secondary" href="/redakce#body-zl">Otevřít výpočet bodů ZL</a>
-          </section>
-        ) : null}
         {missingDialog ? (
           <div
             className="admin-modal-backdrop"

@@ -1,3 +1,4 @@
+import { CollapsibleSetupSection } from '../components/CollapsibleSetupSection';
 import {
 STATION_PASSAGE_CATEGORIES,
 StationCategoryKey,
@@ -21,8 +22,7 @@ setupSaving: boolean;
 };
 
 export function EventScoringSettings({ setupEventScoringConfig, setSetupEventScoringConfig, setupTroopOptions, handleToggleSetupTroop, setupTroopDraft, setSetupTroopDraft, handleAddSetupTroop, handleSaveEventScoringConfig, setupSaving }: EventScoringSettingsProps) {
-return (<div className="admin-setup-block">
-            <h3>Nastavení výsledků a času</h3>
+return (<CollapsibleSetupSection title="Nastavení výsledků a času">
             <p className="admin-card-subtitle">
               Kolik míst se zvýrazní ve výsledcích a do jakého času je za kategorii plných 12 bodů.
             </p>
@@ -163,5 +163,5 @@ return (<div className="admin-setup-block">
                 {setupSaving ? 'Ukládám…' : 'Uložit nastavení výsledků'}
               </button>
             </div>
-          </div>);
+          </CollapsibleSetupSection>);
 }
