@@ -177,6 +177,7 @@ export const EDITOR_SECTIONS = [
   { id: 'alba', label: 'Názvy alb' },
   { id: 'dokumenty', label: 'Dokumenty' },
   { id: 'terminy', label: 'Termíny' },
+  { id: 'kontrola-jmen', label: 'Kontrola jmen' },
 ] as const;
 
 export type EditorSection = (typeof EDITOR_SECTIONS)[number]['id'];

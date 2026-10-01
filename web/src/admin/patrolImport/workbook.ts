@@ -20,6 +20,9 @@ export type PatrolImportRow = {
   sex: 'H' | 'D';
   team_name: string;
   patrol_members: string;
+  /** Structured form of the same data (used e.g. by the name check export). */
+  troops: string[];
+  members: PatrolProfileChildRow[];
 };
 
 export type PatrolImportIssue = { sheet: string; row: number | null; message: string };
@@ -167,7 +170,11 @@ function cellText(cell: ExcelJS.Cell | undefined) {
   return String(value).replace(/\s+/g, ' ').trim();
 }
 
-export async function parsePatrolImportWorkbook(buffer: ArrayBuffer, troopOptions: readonly string[]) {
+export async function parsePatrolImportWorkbook(
+  buffer: ArrayBuffer,
+  troopOptions: readonly string[],
+  options: { allowUnknownTroops?: boolean } = {},
+) {
   const workbook = new ExcelJS.Workbook();
   try {
     await workbook.xlsx.load(buffer);
@@ -241,7 +248,7 @@ export async function parsePatrolImportWorkbook(buffer: ArrayBuffer, troopOption
       const troops: string[] = [];
       let troopError = '';
       troopTexts.forEach((text) => {
-        const canonical = troopByKey.get(text.toLocaleLowerCase('cs'));
+        const canonical = troopByKey.get(text.toLocaleLowerCase('cs')) ?? (options.allowUnknownTroops ? text : '');
         if (!canonical) {
           troopError = `Neznámý oddíl „${text}“. Vyber oddíl ze seznamu.`;
           return;
@@ -268,7 +275,7 @@ export async function parsePatrolImportWorkbook(buffer: ArrayBuffer, troopOption
         }
         let troop = '';
         if (child.troop) {
-          troop = troopByKey.get(child.troop.toLocaleLowerCase('cs')) ?? '';
+          troop = troopByKey.get(child.troop.toLocaleLowerCase('cs')) ?? (options.allowUnknownTroops ? child.troop : '');
           if (!troop || !troops.includes(troop)) {
             childError ||= `Člen ${index + 1}: oddíl musí být jeden z oddílů hlídky.`;
             return;
@@ -301,6 +308,8 @@ export async function parsePatrolImportWorkbook(buffer: ArrayBuffer, troopOption
         sex: sexText,
         team_name: buildPatrolTeamNameFromTroops(troops),
         patrol_members: members,
+        troops,
+        members: normalizedChildren,
       });
     }
   });

@@ -1,7 +1,7 @@
 import { LeagueData, LeagueEvent, LeagueEventEntry, LeagueRowWithRank, LeagueSeason, formatLeagueScore } from '../../league/model';
 
 export type LeagueEditorSectionProps = {
-  activeSection: "clanky" | "poradi-zl" | "body-zl" | "alba" | "dokumenty" | "terminy";
+  activeSection: "clanky" | "poradi-zl" | "body-zl" | "alba" | "dokumenty" | "terminy" | "kontrola-jmen";
   handleLeagueSave: () => void;
   leagueSaving: boolean;
   leagueMessage: string | null;

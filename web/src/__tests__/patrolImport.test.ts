@@ -48,8 +48,8 @@ describe('patrol import parsing', () => {
       ]);
     });
     expect(issues).toEqual([]);
-    expect(rows).toEqual([
-      { category: 'N', number: 1, sex: 'H', team_name: '10. PTO Severka', patrol_members: 'Jan Novák (Honza)' },
+    expect(rows).toMatchObject([
+      { category: 'N', number: 1, sex: 'H', team_name: '10. PTO Severka', patrol_members: 'Jan Novák (Honza)', troops: ['10. PTO Severka'] },
       {
         category: 'M', number: 5, sex: 'D', team_name: '10. PTO Severka + 21. PTO Hády + 8. PTO Mustangové',
         patrol_members: 'Eva Dvořáková {oddil:10. PTO Severka}\nMarie Svobodová (Majka) {oddil:21. PTO Hády}\nPetr Černý {oddil:8. PTO Mustangové}',

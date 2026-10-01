@@ -23,6 +23,7 @@ import { CONTENT_ARTICLE_ALLOWED_IMAGE_TYPES,CONTENT_ARTICLE_FONT_SIZE_OPTIONS,C
 import { ArticleEditorSection } from './components/ArticleEditorSection';
 import { LeagueEditorSection } from './components/LeagueEditorSection';
 import { DocumentsEditorSection } from './components/DocumentsEditorSection';
+import { NameCheckSection } from './components/NameCheckSection';
 import { ScheduleEditorSection } from './components/ScheduleEditorSection';
 
 export const LeaguePointsEditor = lazy(() => import('../../league/LeaguePointsEditor'));
@@ -1356,6 +1357,7 @@ handleDocumentDelete={handleDocumentDelete}
 documentSaving={documentSaving}
 handleDocumentSave={handleDocumentSave}
 />
+            <NameCheckSection activeSection={activeSection} />
             <ScheduleEditorSection
 activeSection={activeSection}
 resetScheduleForm={resetScheduleForm}
