@@ -1012,7 +1012,7 @@ function SetonLiveMapApp() {
     return (
       <EventLiveMap
         initialEventId={status.manifest.event.id}
-        accessToken={status.accessToken}
+        accessToken={status.tokens.accessToken}
         logout={logout}
       />
     );

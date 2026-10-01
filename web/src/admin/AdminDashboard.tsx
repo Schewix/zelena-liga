@@ -1989,6 +1989,14 @@ answersSaving={answersSaving}
           </section>
         ) : null}
 
+        {isStationsPage ? (
+          <AdminStationHealthPanel
+            stationCards={stationHealthCards}
+            onToggleStationClosed={(stationId, nextClosed) => void handleToggleStationClosed(stationId, nextClosed)}
+            stationClosingId={stationClosingId}
+          />
+        ) : null}
+
         {isSettingsPage ? (
         <section
           className="admin-card admin-card--with-divider admin-card--section admin-section-block admin-section-block--stations"
@@ -2292,13 +2300,6 @@ setupSaving={setupSaving}
             waiting={Array.from(stationQueues.values()).reduce((sum, queue) => sum + queue.waiting, 0)}
             serving={Array.from(stationQueues.values()).reduce((sum, queue) => sum + queue.serving, 0)}
             waitingSinceMs={waitingSinceMs}
-          />
-        ) : null}
-        {isLivePage ? (
-          <AdminStationHealthPanel
-            stationCards={stationHealthCards}
-            onToggleStationClosed={(stationId, nextClosed) => void handleToggleStationClosed(stationId, nextClosed)}
-            stationClosingId={stationClosingId}
           />
         ) : null}
         {isLivePage ? (

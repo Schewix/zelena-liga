@@ -20,6 +20,7 @@ import {
   setPinHash,
   getPinHash,
 } from './storage';
+import type { StoredTokens } from './storage';
 import type {
   AuthStatus,
   LoginRequiresPasswordChangeResponse,
@@ -484,12 +485,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return refreshInFlightRef.current;
       }
 
-      const refreshToken = status.tokens.refreshToken;
-      if (!refreshToken) {
+      if (!status.tokens.refreshToken) {
         return false;
       }
 
-      const refreshPromise = (async () => {
+      // Admin a ostatní aplikace běží v různých záložkách nad jednou sdílenou session.
+      // Refresh token se rotuje, proto se před obnovou i po 401 podíváme do úložiště,
+      // jestli ho mezitím neobnovila jiná záložka.
+      const adoptStoredTokens = async (stored: StoredTokens) => {
+        const nextTokens = {
+          refreshToken: stored.refreshToken,
+          accessToken: stored.accessToken || '',
+          accessTokenExpiresAt: stored.accessTokenExpiresAt || Date.now(),
+          sessionId: stored.sessionId,
+        };
+        setStatus((prev) => {
+          if (prev.state !== 'authenticated') return prev;
+          return { ...prev, tokens: nextTokens };
+        });
+        const storedPayload = await getDeviceKeyPayload();
+        setCachedData((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            tokens: { ...nextTokens },
+            encryptedDeviceKey: storedPayload ?? prev.encryptedDeviceKey,
+          };
+        });
+      };
+
+      const isFreshStoredTokens = (stored: StoredTokens | null): stored is StoredTokens =>
+        !!stored &&
+        !!stored.accessToken &&
+        typeof stored.accessTokenExpiresAt === 'number' &&
+        Date.now() < stored.accessTokenExpiresAt - ACCESS_REFRESH_SKEW_MS;
+
+      const runRefresh = async (): Promise<boolean> => {
+        const stored = await getTokens();
+        if (stored && stored.refreshToken !== status.tokens.refreshToken && isFreshStoredTokens(stored)) {
+          await adoptStoredTokens(stored);
+          pendingRefreshRef.current = false;
+          return true;
+        }
+        const refreshToken = stored?.refreshToken ?? status.tokens.refreshToken;
         try {
           const response = await refreshSessionRequest(refreshToken);
           logAccessTokenClaims(response.access_token, 'refresh');
@@ -540,12 +578,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return true;
         } catch (error) {
           if (error instanceof AuthRefreshError && (error.status === 401 || error.status === 403)) {
+            const latest = await getTokens();
+            if (latest && latest.refreshToken !== refreshToken) {
+              // Jiná záložka mezitím token rotovala – převezmeme její session místo odhlášení.
+              await adoptStoredTokens(latest);
+              return true;
+            }
             console.warn('[auth] refresh rejected', { status: error.status, message: error.message });
             await logout();
           } else {
             console.error('[auth] refresh failed', error);
           }
           return false;
+        }
+      };
+
+      const refreshPromise = (async () => {
+        try {
+          const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined;
+          return locks
+            ? await locks.request('zl-auth-refresh', runRefresh)
+            : await runRefresh();
         } finally {
           refreshInFlightRef.current = null;
         }
