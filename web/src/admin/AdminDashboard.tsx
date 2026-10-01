@@ -45,6 +45,7 @@ AdminStatsSection,
 } from './components/AdminOverviewSections';
 import AdminSectionNav from './components/AdminSectionNav';
 import AdminStationHealthPanel,{
+AdminJudgeAssignmentsPanel,
 type AdminStationHealthCard
 } from './components/AdminStationHealthPanel';
 import { buildPatrolCodeVariants,comparePatrolOrder,downloadWorkbook,extractPatrolMembers,parsePatrolCodeParts,toExportFileName,toUniqueWorksheetName,toWorksheetBaseName } from './exports/patrolWorkbook';
@@ -1877,7 +1878,7 @@ answersSaving={answersSaving}
               <div>
                 <h2>Stanoviště a rozhodčí</h2>
                 <p className="admin-card-subtitle">
-                  Live přehled stanovišť a aktuálně přiřazených rozhodčích.
+                  Přiřazení rozhodčích ke stanovištím a ročníkům.
                 </p>
               </div>
               <div className="admin-card-actions">
@@ -1984,12 +1985,7 @@ answersSaving={answersSaving}
                 </button>
               </div>
             </div>
-            <AdminStationHealthPanel
-              stationCards={stationHealthCards}
-              assignmentRows={selectedSetupAssignments}
-              onToggleStationClosed={(stationId, nextClosed) => void handleToggleStationClosed(stationId, nextClosed)}
-              stationClosingId={stationClosingId}
-            />
+            <AdminJudgeAssignmentsPanel assignmentRows={selectedSetupAssignments} />
           </section>
         ) : null}
 
@@ -2296,6 +2292,13 @@ setupSaving={setupSaving}
             waiting={Array.from(stationQueues.values()).reduce((sum, queue) => sum + queue.waiting, 0)}
             serving={Array.from(stationQueues.values()).reduce((sum, queue) => sum + queue.serving, 0)}
             waitingSinceMs={waitingSinceMs}
+          />
+        ) : null}
+        {isLivePage ? (
+          <AdminStationHealthPanel
+            stationCards={stationHealthCards}
+            onToggleStationClosed={(stationId, nextClosed) => void handleToggleStationClosed(stationId, nextClosed)}
+            stationClosingId={stationClosingId}
           />
         ) : null}
         {isLivePage ? (

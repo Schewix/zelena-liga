@@ -965,7 +965,6 @@
 .admin-station-ops-layout {
   display: grid;
   gap: 14px;
-  grid-template-columns: 1.2fr 1fr;
 }
 
 .admin-station-live-panel,

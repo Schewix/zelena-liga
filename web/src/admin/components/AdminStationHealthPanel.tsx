@@ -24,9 +24,8 @@ export type AdminJudgeAssignmentSummary = {
   categories: string[];
 };
 
-type Props = {
+type LiveProps = {
   stationCards: AdminStationHealthCard[];
-  assignmentRows: AdminJudgeAssignmentSummary[];
   onToggleStationClosed?: (stationId: string, nextClosed: boolean) => void;
   stationClosingId?: string | null;
 };
@@ -46,12 +45,11 @@ function statusBadgeClass(status: AdminStationHealthCard['status']) {
 
 export default function AdminStationHealthPanel({
   stationCards,
-  assignmentRows,
   onToggleStationClosed,
   stationClosingId,
-}: Props) {
+}: LiveProps) {
   return (
-    <div className="admin-station-ops-layout">
+    <section className="admin-card admin-card--section admin-section-block admin-section-block--stations-live">
       <div className="admin-station-live-panel">
         <header className="admin-station-live-header">
           <h3>Stanoviště - live stav</h3>
@@ -117,9 +115,14 @@ export default function AdminStationHealthPanel({
             ))}
           </div>
         )}
-        {/* TODO: Napojit live fronty stanovišť a online heartbeat rozhodčích. */}
       </div>
+    </section>
+  );
+}
 
+export function AdminJudgeAssignmentsPanel({ assignmentRows }: { assignmentRows: AdminJudgeAssignmentSummary[] }) {
+  return (
+    <div className="admin-station-ops-layout">
       <div className="admin-judge-list-panel">
         <header className="admin-station-live-header">
           <h3>Rozhodčí na stanovištích</h3>
