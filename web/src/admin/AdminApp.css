@@ -33,7 +33,7 @@
   flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 24px;
+  gap: 18px;
 }
 
 .admin-header h1 {
@@ -57,7 +57,7 @@
 
 .admin-header-actions--centered-row {
   width: 100%;
-  justify-content: center;
+  justify-content: flex-start;
 }
 
 .admin-header-status-row {
