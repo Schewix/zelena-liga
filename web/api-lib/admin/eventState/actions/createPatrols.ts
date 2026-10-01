@@ -1,4 +1,4 @@
-import { BaseCategoryKey,EVENT_SCORING_SETTINGS_SELECT,MAX_PATROLS_PER_CATEGORY,STATION_CATEGORY_KEYS } from '../constants.js';
+import { BaseCategoryKey,CATEGORY_KEYS,EVENT_SCORING_SETTINGS_SELECT,MAX_PATROLS_PER_CATEGORY,STATION_CATEGORY_KEYS } from '../constants.js';
 import { buildCounterpartPatrolCode,buildPatrolCodeLookupVariants,mapPatrolCategoryKey,parsePatrolCategoryNumber,parseSexedPatrolCode,resolvePatrolByCode } from '../patrols.js';
 import { respond } from '../respond.js';
 import { hasAtLeastOneFullName,normalizeAllowedCategories,normalizeAllowedTasks,normalizeEmail,normalizePatrolMembers,normalizeStationCode,normalizeStationOrderPayload,normalizeStationSplitCategories,normalizeText,parseIsoOrNull,toNonNegativeInt } from '../validation.js';
@@ -39,6 +39,26 @@ export async function createPatrols(supabaseAdmin: any, currentEventId: string, 
           team_name: `Hlídka ${code}`,
           category,
           sex,
+          patrol_code: code,
+          note: null,
+          active: true,
+          disqualified: false,
+        });
+      }
+    }
+
+    // Age-category-only creation (N/M/S/R): the code has no sex part and `sex` is a placeholder
+    // because patrols.sex is NOT NULL.
+    for (const category of CATEGORY_KEYS) {
+      const count = Math.min(toNonNegativeInt(rawCounts[category], 0), MAX_PATROLS_PER_CATEGORY);
+      const start = Math.max(1, toNonNegativeInt(rawStarts[category], 1));
+      for (let i = 0; i < count; i += 1) {
+        const code = `${category}-${start + i}`;
+        rows.push({
+          event_id: targetEventId,
+          team_name: `Hlídka ${code}`,
+          category,
+          sex: 'H',
           patrol_code: code,
           note: null,
           active: true,

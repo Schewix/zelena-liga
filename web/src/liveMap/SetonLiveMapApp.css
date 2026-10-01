@@ -3,8 +3,6 @@
   display: flex;
   flex-direction: column;
   color: var(--text);
-  --live-map-hud-top: 8px;
-  --live-map-hud-offset: 210px;
   background:
     radial-gradient(circle at 85% 12%, rgba(255, 216, 79, 0.2), transparent 36%),
     radial-gradient(circle at 8% 78%, rgba(87, 170, 39, 0.12), transparent 34%),
@@ -50,14 +48,10 @@
 }
 
 .live-map-hud {
-  position: fixed;
-  top: calc(var(--live-map-hud-top) + env(safe-area-inset-top, 0px));
-  left: 11px;
-  right: 11px;
-  z-index: 30;
-  width: auto;
-  max-width: 1600px;
-  margin: 0 auto;
+  position: relative;
+  z-index: 2;
+  width: min(1600px, calc(100% - 22px));
+  margin: calc(8px + env(safe-area-inset-top, 0px)) auto 0;
   padding: 10px;
   border-radius: 18px;
   border: 1px solid rgba(255, 255, 255, 0.26);
@@ -327,7 +321,7 @@
   flex: 1;
   width: min(1720px, 100%);
   margin: 0 auto;
-  padding: calc(var(--live-map-hud-offset) + 10px) 12px 16px;
+  padding: 10px 12px 16px;
   display: grid;
   gap: 10px;
 }
@@ -547,9 +541,9 @@
   box-shadow: 0 24px 46px rgba(44, 67, 52, 0.16);
   padding: 12px;
   position: sticky;
-  top: calc(var(--live-map-hud-offset) + 8px);
+  top: 8px;
   height: fit-content;
-  max-height: calc(100vh - (var(--live-map-hud-offset) + 36px));
+  max-height: calc(100vh - 36px);
   overflow: auto;
   scrollbar-width: thin;
 }
@@ -705,12 +699,8 @@
 }
 
 @media (max-width: 1020px) {
-  .live-map-shell {
-    --live-map-hud-offset: 248px;
-  }
-
   .live-map-main {
-    padding: calc(var(--live-map-hud-offset) + 8px) 10px 12px;
+    padding: 8px 10px 12px;
   }
 
   .live-map-stage {
@@ -751,15 +741,9 @@
 }
 
 @media (max-width: 760px) {
-  .live-map-shell {
-    --live-map-hud-top: 6px;
-    --live-map-hud-offset: 332px;
-  }
-
   .live-map-hud {
-    left: 6px;
-    right: 6px;
-    width: auto;
+    width: calc(100% - 12px);
+    margin-top: calc(6px + env(safe-area-inset-top, 0px));
     padding: 10px;
     border-radius: 16px;
   }
@@ -819,10 +803,6 @@
 }
 
 @media (max-width: 560px) {
-  .live-map-shell {
-    --live-map-hud-offset: 398px;
-  }
-
   .live-map-hud-main {
     gap: 6px;
   }
@@ -855,4 +835,22 @@
     right: 6px;
     bottom: 6px;
   }
+}
+
+.live-map-event-selector {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.live-map-event-selector select {
+  max-width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #b8d7b0;
+  border-radius: 10px;
+  background: #fff;
+  color: #243424;
+  font: inherit;
 }

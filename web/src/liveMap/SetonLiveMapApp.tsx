@@ -1,3 +1,5 @@
+import { loadMapData } from './api';
+import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ChangePasswordScreen from '../auth/ChangePasswordScreen';
 import LoginScreen from '../auth/LoginScreen';
@@ -194,10 +196,14 @@ function upsertTiming(items: readonly MapTiming[], row: MapTiming): MapTiming[] 
 function LiveMapDashboard({
   eventId,
   eventName,
+  accessToken,
+  eventSelector,
   logout,
 }: {
   eventId: string;
   eventName: string;
+  accessToken: string;
+  eventSelector: ReactNode;
   logout: () => Promise<void>;
 }) {
   const [loading, setLoading] = useState(true);
@@ -219,56 +225,23 @@ function LiveMapDashboard({
   const [searchResult, setSearchResult] = useState<PatrolSearchResult | null>(null);
   const stageRef = useRef<HTMLElement | null>(null);
   const detailPanelRef = useRef<HTMLElement | null>(null);
+  const loadInFlight = useRef(false);
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (background = false) => {
+    if (loadInFlight.current) return;
+    loadInFlight.current = true;
     setError(null);
-    setLoading(true);
+    if (!background) setLoading(true);
 
     try {
-      const [mapRes, stationRes, positionRes, patrolRes, timingRes, passageRes, scoreRes] = await Promise.all([
-        supabase
-          .from('event_maps')
-          .select('id,event_id,image_url,created_at')
-          .eq('event_id', eventId)
-          .maybeSingle(),
-        supabase
-          .from('stations')
-          .select('id,event_id,code,name')
-          .eq('event_id', eventId),
-        supabase
-          .from('station_map_positions')
-          .select('id,event_id,station_id,x_percent,y_percent,created_at')
-          .eq('event_id', eventId),
-        supabase
-          .from('patrols')
-          .select('id,event_id,team_name,patrol_code,category,sex,active,disqualified')
-          .eq('event_id', eventId),
-        supabase
-          .from('timings')
-          .select('event_id,patrol_id,start_time,finish_time')
-          .eq('event_id', eventId),
-        supabase
-          .from('station_passages')
-          .select('id,event_id,station_id,patrol_id,arrived_at,left_at,wait_minutes,client_created_at')
-          .eq('event_id', eventId),
-        supabase
-          .from('station_scores')
-          .select('id,event_id,station_id,patrol_id,created_at,client_created_at')
-          .eq('event_id', eventId),
-      ]);
-
-      const failed = [
-        mapRes.error,
-        stationRes.error,
-        positionRes.error,
-        patrolRes.error,
-        timingRes.error,
-        passageRes.error,
-        scoreRes.error,
-      ].find(Boolean);
-      if (failed) {
-        throw failed;
-      }
+      const data = await loadMapData('load_live_map', accessToken, eventId);
+      const mapRes = { data: data.event_maps[0] };
+      const stationRes = { data: data.stations };
+      const positionRes = { data: data.station_map_positions };
+      const patrolRes = { data: data.patrols };
+      const timingRes = { data: data.timings };
+      const passageRes = { data: data.station_passages };
+      const scoreRes = { data: data.station_scores };
 
       setEventMap((mapRes.data ?? null) as EventMapRow | null);
       setStations(((stationRes.data ?? []) as MapStation[]).map((station) => ({
@@ -293,14 +266,17 @@ function LiveMapDashboard({
       setLastSyncAt(new Date().toISOString());
     } catch (loadError) {
       console.error('Failed to load live map data', loadError);
-      setError('Nepodařilo se načíst živá data mapy průchodů.');
+      setError(loadError instanceof Error ? loadError.message : 'Nepodařilo se načíst živá data mapy průchodů.');
     } finally {
+      loadInFlight.current = false;
       setLoading(false);
     }
-  }, [eventId]);
+  }, [eventId, accessToken]);
 
   useEffect(() => {
     void loadData();
+    const timer = window.setInterval(() => { void loadData(true); }, 15000);
+    return () => window.clearInterval(timer);
   }, [loadData]);
 
   useEffect(() => {
@@ -655,11 +631,13 @@ function LiveMapDashboard({
             <p>
               {eventName} · Interní dispečink výpočetky
             </p>
+            {eventSelector}
           </div>
           <div className="live-map-hud-statuses">
             <span className={`live-map-badge ${realtimeConnected ? 'live-map-badge--ok' : 'live-map-badge--warn'}`}>
               {realtimeConnected ? 'Realtime připojeno' : 'Realtime odpojeno'}
             </span>
+            <span className="live-map-badge live-map-badge--neutral">Obnova každých 15 s</span>
             <span className="live-map-badge live-map-badge--neutral">Sync: {formatDateTime(lastSyncAt)}</span>
           </div>
         </div>
@@ -744,7 +722,7 @@ function LiveMapDashboard({
           </article>
         </div>
         <div className="live-map-hud-actions">
-          <a className="live-map-button live-map-button--secondary" href={MAP_ADMIN_ROUTE}>
+          <a className="live-map-button live-map-button--secondary" href={`${MAP_ADMIN_ROUTE}?event_id=${encodeURIComponent(eventId)}`}>
             Editor mapy
           </a>
           <button
@@ -929,6 +907,44 @@ function LiveMapDashboard({
   );
 }
 
+function EventLiveMap({ initialEventId, accessToken, logout }: {
+  initialEventId: string; accessToken: string; logout: () => Promise<void>;
+}) {
+  const [events, setEvents] = useState<Array<{ id: string; name: string }>>([]);
+  const [selectedId, setSelectedId] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    let canceled = false;
+    loadMapData('load_live_map_events', accessToken).then((data) => {
+      if (canceled) return;
+      const rows = data.events as Array<{ id: string; name: string }>;
+      setEvents(rows);
+      const requested = new URLSearchParams(window.location.search).get('event_id');
+      const selected = rows.find((event) => event.id === requested)
+        ?? rows.find((event) => event.id === initialEventId) ?? rows[0];
+      if (selected) setSelectedId(selected.id);
+      else setError('Nejsou dostupné žádné ročníky.');
+    }).catch((reason) => { if (!canceled) setError(reason instanceof Error ? reason.message : 'Načtení ročníků selhalo.'); });
+    return () => { canceled = true; };
+  }, [accessToken, initialEventId]);
+  useEffect(() => {
+    if (!selectedId) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set('event_id', selectedId);
+    window.history.replaceState(null, '', url);
+  }, [selectedId]);
+  if (error) return <div className="live-map-shell"><p role="alert">{error}</p></div>;
+  if (!selectedId) return <div className="live-map-shell"><p role="status">Načítám ročníky…</p></div>;
+  return <LiveMapDashboard key={selectedId} eventId={selectedId}
+    eventName={events.find((event) => event.id === selectedId)?.name ?? selectedId}
+    accessToken={accessToken} logout={logout}
+    eventSelector={<label className="live-map-event-selector">Ročník{' '}<select aria-label="Ročník mapy" value={selectedId}
+      onChange={(event) => setSelectedId(event.target.value)}>
+      {events.map((event) => <option key={event.id} value={event.id}>{event.name}</option>)}
+    </select></label>}
+  />;
+}
+
 function SetonLiveMapApp() {
   const { status, logout } = useAuth();
 
@@ -994,9 +1010,9 @@ function SetonLiveMapApp() {
     }
 
     return (
-      <LiveMapDashboard
-        eventId={status.manifest.event.id}
-        eventName={status.manifest.event.name}
+      <EventLiveMap
+        initialEventId={status.manifest.event.id}
+        accessToken={status.accessToken}
         logout={logout}
       />
     );

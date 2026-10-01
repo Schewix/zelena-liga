@@ -405,7 +405,7 @@ export function AdminLiveMapSection({ eventId, mapRoute }: LiveMapSectionProps) 
           )}
         </div>
         <div className="admin-live-map-placeholder-meta">
-          <a className="admin-button admin-button--secondary" href={mapRoute} target="_blank" rel="noreferrer">
+          <a className="admin-button admin-button--secondary" href={`${mapRoute}?event_id=${encodeURIComponent(eventId)}`} target="_blank" rel="noreferrer">
             Otevřít mapu
           </a>
         </div>

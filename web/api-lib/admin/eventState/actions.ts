@@ -1,3 +1,4 @@
+import { loadLiveMap } from './actions/liveMap.js';
 import { targetAnswers } from './actions/targetAnswers.js';
 import { hasAtLeastOneFullName,normalizeAllowedCategories,normalizeAllowedTasks,normalizeEmail,normalizePatrolMembers,normalizeStationCode,normalizeStationOrderPayload,normalizeStationSplitCategories,normalizeText,parseIsoOrNull,toNonNegativeInt } from './validation.js';
 import { createEvent } from './actions/createEvent.js';
@@ -21,6 +22,8 @@ export async function handleSetupAction(
   if (!action) {
     return res.status(400).json({ error: 'Missing action.' });
   }
+
+  if (action === 'load_live_map' || action === 'load_live_map_events') { return loadLiveMap(supabaseAdmin, payload, res); }
 
   if (action === 'load_target_answers' || action === 'save_target_answers') { return targetAnswers(supabaseAdmin, payload, res); }
 

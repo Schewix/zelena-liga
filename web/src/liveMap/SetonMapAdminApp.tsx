@@ -105,7 +105,7 @@ function MapEditorDashboard({
   const [setupError, setSetupError] = useState<string | null>(null);
   const [events, setEvents] = useState<SetupEventRow[]>([]);
   const [stations, setStations] = useState<SetupStationRow[]>([]);
-  const [selectedEventId, setSelectedEventId] = useState(eventId);
+  const [selectedEventId, setSelectedEventId] = useState(() => new URLSearchParams(window.location.search).get('event_id') || eventId);
 
   const [mapLoading, setMapLoading] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);

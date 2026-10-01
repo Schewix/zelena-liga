@@ -179,8 +179,8 @@ export function AdminDashboard({
   const [judgeTaskPreset, setJudgeTaskPreset] = useState<JudgeTaskPresetKey>(DEFAULT_JUDGE_TASK_PRESET);
   const [stationClosingId, setStationClosingId] = useState<string | null>(null);
 
-  const [patrolCounts, setPatrolCounts] = useState<PatrolCountsState>(() => createDefaultPatrolCounts());
-  const [patrolStarts, setPatrolStarts] = useState<PatrolStartsState>(() => createDefaultPatrolStarts());
+  const [patrolCounts, setPatrolCounts] = useState<Record<CategoryKey, number>>(() => createBaseCategoryRecord(() => 0));
+  const [patrolStarts, setPatrolStarts] = useState<Record<CategoryKey, number>>(() => createBaseCategoryRecord(() => 1));
 
   useEffect(() => {
     setEventState((previous) => ({ ...previous, name: manifest.event.name, scoringLocked: manifest.event.scoringLocked }));
@@ -1511,7 +1511,7 @@ export function AdminDashboard({
       return;
     }
 
-    const total = STATION_PASSAGE_CATEGORIES.reduce((sum, category) => sum + Math.max(0, patrolCounts[category] ?? 0), 0);
+    const total = BASE_CATEGORY_ORDER.reduce((sum, category) => sum + Math.max(0, patrolCounts[category] ?? 0), 0);
     if (total <= 0) {
       setSetupError('Zadej počty hlídek alespoň pro jednu kategorii.');
       return;
@@ -2127,10 +2127,10 @@ setupSaving={setupSaving}
 
           <CollapsibleSetupSection title="Vytvoření hlídek">
             <p className="admin-card-subtitle">
-              Zadej počty hlídek pro jednotlivé kategorie a počáteční čísla kódů.
+              Zadej počty hlídek pro jednotlivé věkové kategorie a počáteční čísla kódů.
             </p>
             <div className="admin-setup-patrol-grid">
-              {STATION_PASSAGE_CATEGORIES.map((category) => (
+              {BASE_CATEGORY_ORDER.map((category) => (
                 <div key={category} className="admin-setup-patrol-row">
                   <strong>{category}</strong>
                   <label className="admin-field" htmlFor={`admin-patrol-count-${category}`}>
