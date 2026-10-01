@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ExcelJS from 'exceljs';
+import ChangePasswordScreen from '../auth/ChangePasswordScreen';
+import LoginScreen from '../auth/LoginScreen';
+import { useAuth } from '../auth/context';
 import { supabase } from '../supabaseClient';
 import zelenaLigaLogo from '../assets/znak_SPTO_transparent.png';
 import AppFooter from '../components/AppFooter';
@@ -533,7 +536,7 @@ function createFallbackPatrolCode(category: string, sex: string, rank: number) {
   return `${categoryLabel}-${rank}`;
 }
 
-function ScoreboardApp() {
+function ScoreboardContent() {
   const autoExportRequested = useMemo(() => {
     if (typeof window === 'undefined') {
       return false;
@@ -1346,5 +1349,71 @@ function ScoreboardApp() {
       </div>
     );
   }
+
+function ScoreboardMessage({ title, children }: { title: string; children?: React.ReactNode }) {
+  return (
+    <div className="scoreboard-app">
+      <main style={{ maxWidth: 480, margin: '4rem auto', padding: '0 1rem', textAlign: 'center' }}>
+        <h1>{title}</h1>
+        {children}
+      </main>
+      <AppFooter variant="minimal" />
+    </div>
+  );
+}
+
+// Výsledky jsou dostupné jen přihlášené výpočetce (stanoviště T).
+function ScoreboardApp() {
+  const { status, logout } = useAuth();
+
+  if (status.state === 'loading') {
+    return <ScoreboardMessage title="Načítám…" />;
+  }
+
+  if (status.state === 'error') {
+    return (
+      <ScoreboardMessage title="Nelze načíst aplikaci">
+        <p>{status.message || 'Zkontroluj připojení nebo konfiguraci a zkus to znovu.'}</p>
+        <button type="button" className="scoreboard-button" onClick={() => window.location.reload()}>
+          Zkusit znovu
+        </button>
+      </ScoreboardMessage>
+    );
+  }
+
+  if (status.state === 'unauthenticated') {
+    return <LoginScreen />;
+  }
+
+  if (status.state === 'password-change-required') {
+    return (
+      <ChangePasswordScreen
+        email={status.email}
+        judgeId={status.judgeId}
+        pendingPin={status.pendingPin}
+      />
+    );
+  }
+
+  if (status.state === 'locked') {
+    return <LoginScreen requirePinOnly />;
+  }
+
+  if (status.state === 'authenticated') {
+    if (status.manifest.station.code.trim().toUpperCase() !== 'T') {
+      return (
+        <ScoreboardMessage title="Přístup zamítnut">
+          <p>Výsledky jsou dostupné pouze pro výpočetku (stanoviště T).</p>
+          <button type="button" className="scoreboard-button" onClick={() => void logout()}>
+            Odhlásit se
+          </button>
+        </ScoreboardMessage>
+      );
+    }
+    return <ScoreboardContent />;
+  }
+
+  return null;
+}
 
 export default ScoreboardApp;

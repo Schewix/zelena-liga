@@ -24,7 +24,6 @@ export const SITEMAP_STATIC_ENTRIES: SitemapStaticEntry[] = [
   { path: '/souteze/vybijena', changefreq: 'monthly', priority: 0.7 },
   { path: '/souteze/memorial-bedricha-stolicky', changefreq: 'monthly', priority: 0.7 },
   { path: '/aplikace', changefreq: 'monthly', priority: 0.6 },
-  { path: '/aplikace/setonuv-zavod/vysledky', changefreq: 'weekly', priority: 0.5 },
   { path: '/aplikace/deskovky', changefreq: 'weekly', priority: 0.5 },
   { path: '/aplikace/deskovky/standings', changefreq: 'daily', priority: 0.5 },
   { path: '/aplikace/deskovky/pravidla', changefreq: 'monthly', priority: 0.4 },

@@ -67,7 +67,7 @@ const ROUTE_SEO: Record<string, Pick<SeoConfig, 'title' | 'description'>> = {
   },
   '/aplikace/setonuv-zavod/vysledky': {
     title: 'Výsledky Setonova závodu | Zelená liga',
-    description: 'Veřejný přehled výsledků Setonova závodu v rámci Zelené ligy.',
+    description: 'Výsledky Setonova závodu pro výpočetku.',
   },
   '/clanky': {
     title: 'Články a novinky | Zelená liga',
