@@ -9,6 +9,7 @@ export const NAV_ITEMS = [
   { id: 'souteze', label: 'Soutěže', href: '/souteze' },
   { id: 'oddily', label: 'Oddíly SPTO', href: '/oddily' },
   { id: 'o-spto', label: 'O SPTO', href: '/o-spto' },
+  { id: 'tipy', label: 'Tipy', href: '/tipy' },
   { id: 'sponzori', label: 'Sponzoři', href: '/sponzori' },
   { id: 'kontakty', label: 'Kontakty', href: '/kontakty' },
 ];
@@ -43,6 +44,9 @@ export function resolveActiveNav(pathname: string) {
   }
   if (slug === 'kontakty') {
     return 'kontakty';
+  }
+  if (slug === 'tipy') {
+    return 'tipy';
   }
   if (slug === 'sponzori') {
     return 'sponzori';

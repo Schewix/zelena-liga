@@ -181,6 +181,7 @@
   margin: -72px auto 60px;
   padding: 0 20px;
   display: grid;
+  align-content: start;
   gap: 28px;
   min-width: 0;
 }

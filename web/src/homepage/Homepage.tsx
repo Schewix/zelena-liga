@@ -20,6 +20,7 @@ import { AboutSptoPage } from './pages/AboutSptoPage';
 import { ApplicationsPage } from './pages/ApplicationsPage';
 import { CompetitionRulesPage } from './pages/CompetitionRulesPage';
 import { CompetitionsPage } from './pages/CompetitionsPage';
+import { CommunityPage } from './pages/CommunityPage';
 import { ContactsPage } from './pages/ContactsPage';
 import { HOMEPAGE_GALLERY_PREFETCH_DELAY_MS, HOMEPAGE_GALLERY_PREFETCH_LIMIT, Homepage } from './pages/HomePage';
 import { NotFoundPage } from './pages/NotFoundPage';
@@ -407,6 +408,10 @@ export default function ZelenaligaSite() {
 
     if (slug === 'o-spto' || slug === 'historie') {
       return <AboutSptoPage />;
+    }
+
+    if (slug === 'tipy' && segments.length === 1) {
+      return <CommunityPage />;
     }
 
     if (slug === 'kontakty') {

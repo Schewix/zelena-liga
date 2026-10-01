@@ -368,6 +368,10 @@
       "destination": "/"
     },
     {
+      "source": "/tipy",
+      "destination": "/"
+    },
+    {
       "source": "/kontakty",
       "destination": "/"
     },

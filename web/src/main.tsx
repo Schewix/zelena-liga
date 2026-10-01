@@ -81,6 +81,10 @@ const ROUTE_SEO: Record<string, Pick<SeoConfig, 'title' | 'description'>> = {
     title: 'Plán akcí SPTO 2026/2027 | Zelená liga',
     description: 'Kalendář akcí Zelené ligy, sněmů a štábů SPTO ve školním roce 2026/2027.',
   },
+  '/tipy': {
+    title: 'Tipy od vedoucích | Zelená liga',
+    description: 'Tipy na ubytování na mapě ČR a půjčování her a materiálu mezi oddíly.',
+  },
   '/kontakty': {
     title: 'Kontakty | Zelená liga',
     description: 'Kontaktní informace pro organizátory Zelené ligy a SPTO Brno.',
