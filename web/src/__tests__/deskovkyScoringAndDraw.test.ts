@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
   BOARD_DRAW_MAX_TABLES_PER_GAME,
-  buildPlacementsFromPoints,
   buildRoundTableSizes,
-  parseNumeric,
   planCategoryDraw,
+} from '../features/deskovky/draw';
+import {
+  buildPlacementsFromPoints,
+  parseNumeric,
   resolvePlacementForSave,
-} from '../features/deskovky/DeskovkyApp';
+} from '../features/deskovky/scoring';
 import type { BoardBlock, BoardPlayer, BoardPointsOrder } from '../features/deskovky/types';
 
 const GAME_POINTS_ORDER_CASES: Array<{ game: string; pointsOrder: BoardPointsOrder }> = [

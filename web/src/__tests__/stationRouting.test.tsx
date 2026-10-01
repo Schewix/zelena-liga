@@ -10,7 +10,7 @@ type HookProps = { status: AuthStatus };
 beforeAll(async () => {
   vi.stubEnv('VITE_SUPABASE_URL', 'http://localhost');
   vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'anon-key');
-  ({ useStationRouting } = await import('../App'));
+  ({ useStationRouting } = await import('../station/useStationRouting'));
 });
 
 describe('useStationRouting', () => {
