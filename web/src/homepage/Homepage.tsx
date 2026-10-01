@@ -1,32 +1,32 @@
 import {
-useEffect,
-useState
+  useEffect,
+  useState
 } from 'react';
 import { fetchContentArticles } from '../data/content';
-import { fetchHomepage,hasSanityConfig,type SanityHomepage } from '../data/sanity';
+import { fetchHomepage, hasSanityConfig, type SanityHomepage } from '../data/sanity';
 import { fetchAlbumPreview } from '../utils/galleryCache';
 import { ArticlePageLoader } from './articles/ArticlePageLoader';
 import { ArticlesIndexPage } from './articles/ArticlesIndexPage';
-import { Article,mapContentArticle } from './articles/model';
-import { ARTICLES_PAGE_SIZE,HOMEPAGE_ARTICLE_LIMIT } from './data/pagination';
+import { Article, mapContentArticle } from './articles/model';
+import { ARTICLES_PAGE_SIZE, HOMEPAGE_ARTICLE_LIMIT } from './data/pagination';
 import { RedakcePage } from './editorial/RedakcePage';
 import { GalleryAlbumPage } from './gallery/GalleryAlbumPage';
 import { GalleryOverviewPage } from './gallery/GalleryOverviewPage';
 import { DriveAlbum } from './gallery/model';
 import './Homepage.css';
 import { LeagueStandingsPage } from './league/LeagueStandingsPage';
-import { LeagueData,createDefaultLeagueData,getActiveLeagueSeason,normalizeLeagueData } from './league/model';
+import { LeagueData, createDefaultLeagueData, getActiveLeagueSeason, normalizeLeagueData } from './league/model';
 import { AboutSptoPage } from './pages/AboutSptoPage';
 import { ApplicationsPage } from './pages/ApplicationsPage';
 import { CompetitionRulesPage } from './pages/CompetitionRulesPage';
 import { CompetitionsPage } from './pages/CompetitionsPage';
 import { ContactsPage } from './pages/ContactsPage';
-import { HOMEPAGE_GALLERY_PREFETCH_DELAY_MS,HOMEPAGE_GALLERY_PREFETCH_LIMIT,Homepage } from './pages/HomePage';
+import { HOMEPAGE_GALLERY_PREFETCH_DELAY_MS, HOMEPAGE_GALLERY_PREFETCH_LIMIT, Homepage } from './pages/HomePage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { SponsorsPage } from './pages/SponsorsPage';
 import { SchedulePage } from './schedule/SchedulePage';
 import { TROOPS } from './troops/model';
-import { TroopDetailPage,TroopsPage } from './troops/pages';
+import { TroopDetailPage, TroopsPage } from './troops/pages';
 
 export default function ZelenaligaSite() {
   const [homepageContent, setHomepageContent] = useState<SanityHomepage | null>(null);

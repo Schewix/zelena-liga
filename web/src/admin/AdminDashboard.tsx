@@ -169,9 +169,7 @@ export function AdminDashboard({
   const [copyStationsFromCurrentEvent, setCopyStationsFromCurrentEvent] = useState(true);
 
   const [orderInputs, setOrderInputs] = useState<Record<StationCategoryKey, string>>(() => createDefaultOrderTextState());
-  const [separatorInputs, setSeparatorInputs] = useState<Partial<Record<StationCategoryKey, string>>>(
-    () => createDefaultSeparatorState(),
-  );
+
 
   const [judgeEmailInput, setJudgeEmailInput] = useState('');
   const [judgeDisplayNameInput, setJudgeDisplayNameInput] = useState('');
@@ -900,14 +898,6 @@ export function AdminDashboard({
     });
     setOrderInputs(nextOrderInputs);
 
-    const nextSeparators = createDefaultSeparatorState();
-    STATION_PASSAGE_CATEGORIES.forEach((category) => {
-      const separator = order?.separator_before_by_category?.[category];
-      if (separator) {
-        nextSeparators[category] = separator;
-      }
-    });
-    setSeparatorInputs(nextSeparators);
   }, [selectedSetupEventId, setupOrders]);
 
   useEffect(() => {
@@ -1303,7 +1293,10 @@ export function AdminDashboard({
       RH: [],
       RD: [],
     };
-    const separatorBeforeByCategory: Partial<Record<StationCategoryKey, string>> = {};
+    const separatorBeforeByCategory = {
+      ...createDefaultSeparatorState(),
+      ...setupOrders[selectedSetupEventId]?.separator_before_by_category,
+    };
 
     STATION_PASSAGE_CATEGORIES.forEach((category) => {
       const values = orderInputs[category]
@@ -1313,10 +1306,7 @@ export function AdminDashboard({
       const dedup = Array.from(new Set(values));
       categoryOrders[category] = dedup;
 
-      const separator = normalizeText(separatorInputs[category]).toUpperCase();
-      if (separator) {
-        separatorBeforeByCategory[category] = separator;
-      }
+
     });
 
     setSetupSaving(true);
@@ -1334,7 +1324,7 @@ export function AdminDashboard({
     } finally {
       setSetupSaving(false);
     }
-  }, [loadSetupData, orderInputs, postSetupAction, selectedSetupEventId, separatorInputs]);
+  }, [loadSetupData, orderInputs, postSetupAction, selectedSetupEventId, setupOrders]);
 
   const handleSaveEventScoringConfig = useCallback(async () => {
     setSetupError(null);
@@ -2122,21 +2112,6 @@ setupSaving={setupSaving}
                           [category]: event.target.value,
                         }))
                       }
-                    />
-                  </label>
-                  <label className="admin-field" htmlFor={`admin-separator-${category}`}>
-                    <span>{category} – oddělovač (volitelné)</span>
-                    <input
-                      id={`admin-separator-${category}`}
-                      value={separatorInputs[category] ?? ''}
-                      onChange={(event) =>
-                        setSeparatorInputs((prev) => ({
-                          ...prev,
-                          [category]: event.target.value.trim().toUpperCase(),
-                        }))
-                      }
-                      placeholder="např. R"
-                      autoComplete="off"
                     />
                   </label>
                 </div>

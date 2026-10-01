@@ -28,3 +28,4 @@ web/supabase/
 .idea/
 .vercel
 .env*.local
+.env*

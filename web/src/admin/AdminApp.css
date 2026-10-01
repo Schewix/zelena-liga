@@ -744,7 +744,7 @@
 
 .admin-setup-order-row {
   display: grid;
-  grid-template-columns: 1fr 260px;
+  grid-template-columns: 1fr;
   gap: 12px;
 }
 
