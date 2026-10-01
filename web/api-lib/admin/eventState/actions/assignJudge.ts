@@ -1,6 +1,6 @@
 import { generateTemporaryPassword,hashPassword } from '../../../auth/password-utils.js';
 import { respond } from '../respond.js';
-import { hasAtLeastOneFullName,normalizeAllowedCategories,normalizeAllowedTasks,normalizeEmail,normalizePatrolMembers,normalizeStationCode,normalizeStationOrderPayload,normalizeStationSplitCategories,normalizeText,parseIsoOrNull,toNonNegativeInt } from '../validation.js';
+import { normalizeAllowedCategories, normalizeAllowedTasks, normalizeEmail, normalizeStationCode, normalizeText } from '../validation.js';
 
 export async function assignJudge(supabaseAdmin: any, currentEventId: string, payload: Record<string, unknown>, res: any) {
     const targetEventId = normalizeText(payload.event_id);
@@ -12,6 +12,10 @@ export async function assignJudge(supabaseAdmin: any, currentEventId: string, pa
 
     if (!targetEventId || !email || !stationCode) {
       return res.status(400).json({ error: 'Missing required fields (event, email, station).' });
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ error: 'Zadej platnou e-mailovou adresu rozhodčího.' });
     }
 
     const { data: station, error: stationError } = await supabaseAdmin
@@ -98,13 +102,37 @@ export async function assignJudge(supabaseAdmin: any, currentEventId: string, pa
     );
 
     if (upsertAssignmentError) {
+      if (createdJudge) await supabaseAdmin.from('judges').delete().eq('id', judgeId);
       return respond(res, 500, 'Failed to save judge assignment', upsertAssignmentError.message);
+    }
+
+    if (createdJudge) {
+      const { error: emailQueueError } = await supabaseAdmin.from('judge_onboarding_events').insert({
+        judge_id: judgeId,
+        event_id: targetEventId,
+        station_id: station.id,
+        delivery_channel: 'email',
+        metadata: {
+          type: 'initial-password-issued',
+          source: 'admin-assignment',
+          email,
+          password: temporaryPassword,
+          sent: false,
+        },
+      });
+      if (emailQueueError) {
+        // Remove the new account and its cascading assignment so a retry can create it again.
+        const { error: cleanupError } = await supabaseAdmin.from('judges').delete().eq('id', judgeId);
+        return respond(res, 500, cleanupError
+          ? 'E-mail se nepodařilo zařadit k odeslání. Účet vyžaduje obnovu hesla.'
+          : 'E-mail se nepodařilo zařadit k odeslání. Zkus vytvoření rozhodčího znovu.');
+      }
     }
 
     return res.status(200).json({
       ok: true,
       created_judge: createdJudge,
-      temporary_password: temporaryPassword,
+      email_delivery: createdJudge ? 'queued' : 'not_required',
       assignment: {
         judge_id: judgeId,
         event_id: targetEventId,

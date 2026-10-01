@@ -247,14 +247,14 @@ Deno.serve(async (req) => {
   let processed = 0;
 
   // Vytáhneme události, které:
-  // - patří do daného eventu,
+  // - patří do daného eventu nebo vznikly ručním přiřazením v administraci,
   // - jsou pro email (delivery_channel='email' nebo delivery_channel IS NULL),
   // - mají typ 'initial-password-issued',
   // - ještě nebyly odeslané (metadata.sent !== true)
   const { data, error } = await supabase
     .from("judge_onboarding_events")
     .select("id, judge_id, metadata")
-    .eq("event_id", EVENT_ID)
+    .or(`event_id.eq.${EVENT_ID},metadata->>source.eq.admin-assignment`)
     .or("delivery_channel.eq.email,delivery_channel.is.null");
 
   if (error) {

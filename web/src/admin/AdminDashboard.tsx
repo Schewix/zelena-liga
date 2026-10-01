@@ -179,7 +179,6 @@ export function AdminDashboard({
   const [judgeStationCodeInput, setJudgeStationCodeInput] = useState('');
   const [judgeCategoryToggle, setJudgeCategoryToggle] = useState<CategoryToggleState>(() => createDefaultCategoryToggleState());
   const [judgeTaskPreset, setJudgeTaskPreset] = useState<JudgeTaskPresetKey>(DEFAULT_JUDGE_TASK_PRESET);
-  const [judgeTemporaryPassword, setJudgeTemporaryPassword] = useState<string | null>(null);
   const [stationClosingId, setStationClosingId] = useState<string | null>(null);
 
   const [patrolCounts, setPatrolCounts] = useState<PatrolCountsState>(() => createDefaultPatrolCounts());
@@ -1313,7 +1312,7 @@ export function AdminDashboard({
   const handleCreateEvent = useCallback(async () => {
     setSetupError(null);
     setSetupSuccess(null);
-    setJudgeTemporaryPassword(null);
+
 
     if (!createEventName.trim()) {
       setSetupError('Název ročníku je povinný.');
@@ -1356,7 +1355,7 @@ export function AdminDashboard({
   const handleSaveStationOrder = useCallback(async () => {
     setSetupError(null);
     setSetupSuccess(null);
-    setJudgeTemporaryPassword(null);
+
 
     if (!selectedSetupEventId) {
       setSetupError('Vyber ročník, pro který se má pořadí uložit.');
@@ -1409,7 +1408,7 @@ export function AdminDashboard({
   const handleSaveEventScoringConfig = useCallback(async () => {
     setSetupError(null);
     setSetupSuccess(null);
-    setJudgeTemporaryPassword(null);
+
 
     if (!selectedSetupEventId) {
       setSetupError('Vyber ročník.');
@@ -1449,7 +1448,7 @@ export function AdminDashboard({
   const handleToggleStationClosed = useCallback(async (stationId: string, nextClosed: boolean) => {
     setSetupError(null);
     setSetupSuccess(null);
-    setJudgeTemporaryPassword(null);
+
 
     if (!selectedSetupEventId) {
       setSetupError('Vyber ročník.');
@@ -1522,7 +1521,7 @@ export function AdminDashboard({
   const handleAssignJudgeToEvent = useCallback(async () => {
     setSetupError(null);
     setSetupSuccess(null);
-    setJudgeTemporaryPassword(null);
+
 
     if (!selectedSetupEventId) {
       setSetupError('Vyber ročník.');
@@ -1557,14 +1556,9 @@ export function AdminDashboard({
         allowed_categories: allowedCategories,
         allowed_tasks: allowedTasks,
       });
-      if (result?.temporary_password) {
-        setJudgeTemporaryPassword(String(result.temporary_password));
-      } else {
-        setJudgeTemporaryPassword(null);
-      }
       setSetupSuccess(
         result?.created_judge
-          ? `Rozhodčí byl vytvořen a přiřazen.`
+          ? `Rozhodčí byl vytvořen a přiřazen. Přihlašovací údaje byly zařazeny k odeslání na jeho e-mail.`
           : `Rozhodčí byl přiřazen k vybranému ročníku.`,
       );
       await loadSetupData();
@@ -1588,7 +1582,7 @@ export function AdminDashboard({
   const handleCreatePatrols = useCallback(async () => {
     setSetupError(null);
     setSetupSuccess(null);
-    setJudgeTemporaryPassword(null);
+
 
     if (!selectedSetupEventId) {
       setSetupError('Vyber ročník.');
@@ -1621,7 +1615,7 @@ export function AdminDashboard({
   const handleClearEventPoints = useCallback(async () => {
     setSetupError(null);
     setSetupSuccess(null);
-    setJudgeTemporaryPassword(null);
+
 
     if (!selectedSetupEventId) {
       setSetupError('Vyber ročník.');
@@ -1650,7 +1644,7 @@ export function AdminDashboard({
   const handleCleanupIncompletePatrols = useCallback(async () => {
     setSetupError(null);
     setSetupSuccess(null);
-    setJudgeTemporaryPassword(null);
+
 
     if (!selectedSetupEventId) {
       setSetupError('Vyber ročník.');
@@ -1985,11 +1979,6 @@ answersSaving={answersSaving}
             </header>
             {setupError ? <p className="admin-error">{setupError}</p> : null}
             {setupSuccess ? <p className="admin-success">{setupSuccess}</p> : null}
-            {judgeTemporaryPassword ? (
-              <p className="admin-notice">
-                Nový účet rozhodčího byl vytvořen. Dočasné heslo: <strong>{judgeTemporaryPassword}</strong>
-              </p>
-            ) : null}
             <div className="admin-setup-block">
               <h3>Rozhodčí a přiřazení</h3>
               <p className="admin-card-subtitle">

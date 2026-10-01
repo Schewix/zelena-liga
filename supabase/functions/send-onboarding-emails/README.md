@@ -1,7 +1,12 @@
 # Odesílání přístupových e-mailů
 
 Funkce vybírá neodeslané `initial-password-issued` události z
-`judge_onboarding_events` pro nakonfigurovaný závod. Režim `dry_run=true`
+`judge_onboarding_events` pro nakonfigurovaný závod a události vytvořené
+v administraci (`metadata.source = admin-assignment`) napříč ročníky.
+Při ručním vytvoření rozhodčího API zařadí přístupové údaje do této fronty;
+heslo nevrací do prohlížeče. Existujícím účtům heslo nemění ani neposílá.
+Zařazení do fronty není potvrzením doručení; odeslání provede pravidelný běh funkce.
+Režim `dry_run=true`
 nic neodesílá ani nezapisuje.
 
 ## Chyby a opakování

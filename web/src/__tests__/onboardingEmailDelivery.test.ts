@@ -23,6 +23,7 @@ function setup(metadata: Record<string, unknown> = {}, judgeEmail = 'judge@examp
   const client = {
     from: (table: string) => ({
       select: () => ({
+        or: () => ({ or: async () => ({ data: [structuredClone(row)], error: null }) }),
         eq: () => ({
           or: async () => ({ data: [structuredClone(row)], error: null }),
           maybeSingle: async () => ({ data: { email: judgeEmail, display_name: 'Judge' }, error: null }),
