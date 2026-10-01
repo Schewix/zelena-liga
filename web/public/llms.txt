@@ -1,0 +1,18 @@
+# Zelená liga (zelenaliga.cz)
+
+> Zelená liga je soutěž tábornických oddílů SPTO Brno (Sdružení pionýrských tábornických oddílů). Web shrnuje soutěže ligy, aktuální pořadí oddílů, plán akcí, články, profily oddílů a fotogalerii.
+
+## Hlavní stránky
+- [Soutěže](https://www.zelenaliga.cz/souteze): přehled soutěží Zelené ligy (Setonův závod, Dračí smyčka, Kosmův prostor, deskové hry, Brněnské bloudění a další)
+- [Aktuální pořadí](https://www.zelenaliga.cz/aktualni-poradi): průběžné pořadí oddílů a bodování jednotlivých soutěží
+- [Plán akcí](https://www.zelenaliga.cz/plan-akci): termíny soutěží, sněmů a štábů SPTO
+- [Články](https://www.zelenaliga.cz/clanky): aktuality a reportáže ze soutěží
+- [Oddíly](https://www.zelenaliga.cz/oddily): přehled tábornických oddílů SPTO Brno
+- [Fotogalerie](https://www.zelenaliga.cz/fotogalerie): fotografie ze soutěží a akcí
+- [O SPTO](https://www.zelenaliga.cz/o-spto): historie a vedení SPTO
+- [Kontakty](https://www.zelenaliga.cz/kontakty): kontakty na vedení SPTO
+
+## Poznámky
+- Jazyk obsahu: čeština.
+- Aplikace pro rozhodčí a administrace Setonova závodu jsou neveřejné a nemají být indexované.
+- Sitemap: https://www.zelenaliga.cz/sitemap.xml

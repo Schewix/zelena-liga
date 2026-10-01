@@ -80,7 +80,7 @@ export async function handlePublicSitemap(req: any, res: any) {
   }
 
   try {
-    const { articles } = await fetchLocalArticleSummaries({ limit: 3 });
+    const { articles } = await fetchLocalArticleSummaries({ limit: 50 });
     const latestArticles = articles
       .map((article) => {
         const lastmod = normalizeSitemapLastmod(article.dateISO);

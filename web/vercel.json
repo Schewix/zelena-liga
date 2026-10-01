@@ -257,7 +257,7 @@
     },
     {
       "source": "/aplikace/(.*)",
-      "destination": "/"
+      "destination": "/api/seo?path=/aplikace/$1"
     },
     {
       "source": "/deskovky",
@@ -301,27 +301,27 @@
     },
     {
       "source": "/souteze",
-      "destination": "/"
+      "destination": "/api/seo?path=/souteze"
     },
     {
       "source": "/souteze/(.*)",
-      "destination": "/"
+      "destination": "/api/seo?path=/souteze/$1"
     },
     {
       "source": "/zelena-liga",
-      "destination": "/"
+      "destination": "/api/seo?path=/zelena-liga"
     },
     {
       "source": "/aktualni-poradi",
-      "destination": "/"
+      "destination": "/api/seo?path=/aktualni-poradi"
     },
     {
       "source": "/plan-akci",
-      "destination": "/"
+      "destination": "/api/seo?path=/plan-akci"
     },
     {
       "source": "/aplikace",
-      "destination": "/"
+      "destination": "/api/seo?path=/aplikace"
     },
     {
       "source": "/admin",
@@ -333,27 +333,27 @@
     },
     {
       "source": "/oddily",
-      "destination": "/"
+      "destination": "/api/seo?path=/oddily"
     },
     {
       "source": "/oddily/(.*)",
-      "destination": "/"
+      "destination": "/api/seo?path=/oddily/$1"
     },
     {
       "source": "/fotogalerie",
-      "destination": "/"
+      "destination": "/api/seo?path=/fotogalerie"
     },
     {
       "source": "/fotogalerie/(.*)",
-      "destination": "/"
+      "destination": "/api/seo?path=/fotogalerie/$1"
     },
     {
       "source": "/clanky",
-      "destination": "/"
+      "destination": "/api/seo?path=/clanky"
     },
     {
       "source": "/clanky/(.*)",
-      "destination": "/"
+      "destination": "/api/seo?path=/clanky/$1"
     },
     {
       "source": "/historie",
@@ -361,23 +361,23 @@
     },
     {
       "source": "/o-spto",
-      "destination": "/"
+      "destination": "/api/seo?path=/o-spto"
     },
     {
       "source": "/sponzori",
-      "destination": "/"
+      "destination": "/api/seo?path=/sponzori"
     },
     {
       "source": "/tipy",
-      "destination": "/"
+      "destination": "/api/seo?path=/tipy"
     },
     {
       "source": "/kontakty",
-      "destination": "/"
+      "destination": "/api/seo?path=/kontakty"
     },
     {
       "source": "/kontakty/(.*)",
-      "destination": "/"
+      "destination": "/api/seo?path=/kontakty/$1"
     },
     {
       "source": "/redakce",

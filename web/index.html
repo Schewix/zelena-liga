@@ -29,9 +29,47 @@
     <meta property="og:url" content="https://www.zelenaliga.cz/" />
     <meta property="og:image" content="https://www.zelenaliga.cz/icon-512.png" />
     <meta name="twitter:card" content="summary_large_image" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "https://www.zelenaliga.cz/#organization",
+            "name": "SPTO Brno – Zelená liga",
+            "alternateName": "Zelená liga",
+            "url": "https://www.zelenaliga.cz/",
+            "logo": "https://www.zelenaliga.cz/icon-512.png",
+            "description": "Zelená liga je soutěžní liga tábornických oddílů SPTO Brno: Setonův závod, Dračí smyčka, Kosmův prostor, deskové hry a další soutěže."
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://www.zelenaliga.cz/#website",
+            "url": "https://www.zelenaliga.cz/",
+            "name": "Zelená liga",
+            "inLanguage": "cs",
+            "publisher": { "@id": "https://www.zelenaliga.cz/#organization" }
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
+    <noscript>
+      <h1>Zelená liga</h1>
+      <p>Zelená liga je soutěž tábornických oddílů SPTO Brno. Najdeš tu soutěže, aktuální pořadí, plán akcí, články, oddíly a fotogalerie.</p>
+      <ul>
+        <li><a href="/souteze">Soutěže</a></li>
+        <li><a href="/aktualni-poradi">Aktuální pořadí</a></li>
+        <li><a href="/plan-akci">Plán akcí</a></li>
+        <li><a href="/clanky">Články</a></li>
+        <li><a href="/oddily">Oddíly</a></li>
+        <li><a href="/fotogalerie">Fotogalerie</a></li>
+        <li><a href="/o-spto">O SPTO</a></li>
+        <li><a href="/kontakty">Kontakty</a></li>
+      </ul>
+    </noscript>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
