@@ -1,7 +1,7 @@
 import { useId, useState, type ReactNode } from 'react';
 
 export function CollapsibleSetupSection({ title, children }: { title: string; children: ReactNode }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const contentId = useId();
 
   return (

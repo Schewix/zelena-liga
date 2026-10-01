@@ -119,10 +119,7 @@ export function AdminDashboard({
   const [setupAssignments, setSetupAssignments] = useState<SetupAssignmentRow[]>([]);
   const [setupOrders, setSetupOrders] = useState<Record<string, SetupStationOrderPayload>>({});
   const [selectedSetupEventId, setSelectedSetupEventId] = useState(() => {
-    if (typeof window === 'undefined') {
-      return eventId;
-    }
-    return window.localStorage.getItem(SETUP_SELECTED_EVENT_STORAGE_KEY) || eventId;
+    return eventId;
   });
   const normalizedSelectedSetupEventId = normalizeText(selectedSetupEventId);
   const activeEventId = useMemo(() => {
@@ -2128,59 +2125,6 @@ setupSaving={setupSaving}
             </div>
           </CollapsibleSetupSection>
 
-          <CollapsibleSetupSection title="Vytvoření hlídek">
-            <p className="admin-card-subtitle">
-              Zadej počty hlídek pro jednotlivé věkové kategorie a počáteční čísla kódů.
-            </p>
-            <div className="admin-setup-patrol-grid">
-              {BASE_CATEGORY_ORDER.map((category) => (
-                <div key={category} className="admin-setup-patrol-row">
-                  <strong>{category}</strong>
-                  <label className="admin-field" htmlFor={`admin-patrol-count-${category}`}>
-                    <span>Počet</span>
-                    <input
-                      id={`admin-patrol-count-${category}`}
-                      type="number"
-                      min={0}
-                      value={patrolCounts[category]}
-                      onChange={(event) =>
-                        setPatrolCounts((prev) => ({
-                          ...prev,
-                          [category]: Math.max(0, Number.parseInt(event.target.value || '0', 10) || 0),
-                        }))
-                      }
-                    />
-                  </label>
-                  <label className="admin-field" htmlFor={`admin-patrol-start-${category}`}>
-                    <span>Od čísla</span>
-                    <input
-                      id={`admin-patrol-start-${category}`}
-                      type="number"
-                      min={1}
-                      value={patrolStarts[category]}
-                      onChange={(event) =>
-                        setPatrolStarts((prev) => ({
-                          ...prev,
-                          [category]: Math.max(1, Number.parseInt(event.target.value || '1', 10) || 1),
-                        }))
-                      }
-                    />
-                  </label>
-                </div>
-              ))}
-            </div>
-            <div className="admin-card-actions admin-card-actions--end">
-              <button
-                type="button"
-                className="admin-button admin-button--secondary"
-                onClick={() => void handleCreatePatrols()}
-                disabled={setupSaving}
-              >
-                {setupSaving ? 'Ukládám…' : 'Vytvořit hlídky'}
-              </button>
-            </div>
-          </CollapsibleSetupSection>
-
           <CollapsibleSetupSection title="Smazat všechny body ročníku">
             <p className="admin-card-subtitle">
               Smaže bodování, průchody, čekání a odpovědi terčového úseku pro vybraný ročník.
@@ -2287,6 +2231,59 @@ setupSaving={setupSaving}
               </div>
             </div>
           ) : null}
+
+          <CollapsibleSetupSection title="Vytvoření hlídek">
+            <p className="admin-card-subtitle">
+              Zadej počty hlídek pro jednotlivé věkové kategorie a počáteční čísla kódů.
+            </p>
+            <div className="admin-setup-patrol-grid">
+              {BASE_CATEGORY_ORDER.map((category) => (
+                <div key={category} className="admin-setup-patrol-row">
+                  <strong>{category}</strong>
+                  <label className="admin-field" htmlFor={`admin-patrol-count-${category}`}>
+                    <span>Počet</span>
+                    <input
+                      id={`admin-patrol-count-${category}`}
+                      type="number"
+                      min={0}
+                      value={patrolCounts[category]}
+                      onChange={(event) =>
+                        setPatrolCounts((prev) => ({
+                          ...prev,
+                          [category]: Math.max(0, Number.parseInt(event.target.value || '0', 10) || 0),
+                        }))
+                      }
+                    />
+                  </label>
+                  <label className="admin-field" htmlFor={`admin-patrol-start-${category}`}>
+                    <span>Od čísla</span>
+                    <input
+                      id={`admin-patrol-start-${category}`}
+                      type="number"
+                      min={1}
+                      value={patrolStarts[category]}
+                      onChange={(event) =>
+                        setPatrolStarts((prev) => ({
+                          ...prev,
+                          [category]: Math.max(1, Number.parseInt(event.target.value || '1', 10) || 1),
+                        }))
+                      }
+                    />
+                  </label>
+                </div>
+              ))}
+            </div>
+            <div className="admin-card-actions admin-card-actions--end">
+              <button
+                type="button"
+                className="admin-button admin-button--secondary"
+                onClick={() => void handleCreatePatrols()}
+                disabled={setupSaving}
+              >
+                {setupSaving ? 'Ukládám…' : 'Vytvořit hlídky'}
+              </button>
+            </div>
+          </CollapsibleSetupSection>
         </section>
         ) : null}
 
