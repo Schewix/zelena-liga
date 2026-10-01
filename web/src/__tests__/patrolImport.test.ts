@@ -30,37 +30,39 @@ describe('patrol import template', () => {
     expect(sheet.getCell('B2').dataValidation).toMatchObject({ type: 'list', formulae: ['"H,D"'] });
     expect(sheet.getCell('C2').dataValidation).toMatchObject({ type: 'list' });
     expect(sheet.getCell('A2').dataValidation).toMatchObject({ type: 'whole', formulae: [1, 50] });
-    expect(sheet.getCell('H2').dataValidation).toMatchObject({ type: 'list', formulae: ['$C2:$D2'] });
+    expect(sheet.getCell('I2').dataValidation).toMatchObject({ type: 'list', formulae: ['$C2:$E2'] });
     expect(workbook.getWorksheet('Seznamy')!.getCell('A3').value).toBe('21. PTO Hády');
+    expect(sheet.views[0]).toMatchObject({ state: 'frozen', xSplit: 1, ySplit: 1 });
   });
 });
 
 describe('patrol import parsing', () => {
   it('reads single-troop and mixed patrols and ignores placeholder rows', async () => {
     const { rows, issues } = await roundTrip((sheets) => {
-      setRow(sheets.N, 2, [1, 'H', '10. PTO Severka', undefined, 'Jan', 'Novák', 'Honza']);
+      setRow(sheets.N, 2, [1, 'H', '10. PTO Severka', undefined, undefined, 'Jan', 'Novák', 'Honza']);
       setRow(sheets.M, 6, [
-        5, 'D', '10. PTO Severka', '21. PTO Hády',
+        5, 'D', '10. PTO Severka', '21. PTO Hády', '8. PTO Mustangové',
         'Eva', 'Dvořáková', undefined, '10. PTO Severka',
         'Marie', 'Svobodová', 'Majka', '21. PTO Hády',
+        'Petr', 'Černý', undefined, '8. PTO Mustangové',
       ]);
     });
     expect(issues).toEqual([]);
     expect(rows).toEqual([
       { category: 'N', number: 1, sex: 'H', team_name: '10. PTO Severka', patrol_members: 'Jan Novák (Honza)' },
       {
-        category: 'M', number: 5, sex: 'D', team_name: '10. PTO Severka + 21. PTO Hády',
-        patrol_members: 'Eva Dvořáková {oddil:10. PTO Severka}\nMarie Svobodová (Majka) {oddil:21. PTO Hády}',
+        category: 'M', number: 5, sex: 'D', team_name: '10. PTO Severka + 21. PTO Hády + 8. PTO Mustangové',
+        patrol_members: 'Eva Dvořáková {oddil:10. PTO Severka}\nMarie Svobodová (Majka) {oddil:21. PTO Hády}\nPetr Černý {oddil:8. PTO Mustangové}',
       },
     ]);
   });
 
   it('reports row errors', async () => {
     const { rows, issues } = await roundTrip((sheets) => {
-      setRow(sheets.N, 2, [1, 'X', '10. PTO Severka', undefined, 'Jan', 'Novák']);
-      setRow(sheets.N, 3, [2, 'H', 'Neznámý oddíl', undefined, 'Jan', 'Novák']);
-      setRow(sheets.N, 4, [3, 'H', '10. PTO Severka', '21. PTO Hády', 'Jan', 'Novák']);
-      setRow(sheets.N, 5, [4, 'H', '10. PTO Severka', undefined, 'Jan']);
+      setRow(sheets.N, 2, [1, 'X', '10. PTO Severka', undefined, undefined, 'Jan', 'Novák']);
+      setRow(sheets.N, 3, [2, 'H', 'Neznámý oddíl', undefined, undefined, 'Jan', 'Novák']);
+      setRow(sheets.N, 4, [3, 'H', '10. PTO Severka', '21. PTO Hády', undefined, 'Jan', 'Novák']);
+      setRow(sheets.N, 5, [4, 'H', '10. PTO Severka', undefined, undefined, 'Jan']);
       setRow(sheets.N, 6, [5, 'H', '10. PTO Severka']);
     });
     expect(rows).toEqual([]);
@@ -73,10 +75,17 @@ describe('patrol import parsing', () => {
     ]);
   });
 
+  it('rejects an unknown third troop', async () => {
+    const { issues } = await roundTrip((sheets) => {
+      setRow(sheets.R, 2, [1, 'H', '10. PTO Severka', '21. PTO Hády', 'Neznámý', 'Jan', 'Novák']);
+    });
+    expect(issues[0]).toMatchObject({ sheet: 'R', row: 2, message: expect.stringContaining('Neznámý oddíl') });
+  });
+
   it('rejects a duplicated number within a category', async () => {
     const { issues } = await roundTrip((sheets) => {
-      setRow(sheets.S, 2, [1, 'H', '10. PTO Severka', undefined, 'Jan', 'Novák']);
-      setRow(sheets.S, 3, [1, 'D', '10. PTO Severka', undefined, 'Eva', 'Nová']);
+      setRow(sheets.S, 2, [1, 'H', '10. PTO Severka', undefined, undefined, 'Jan', 'Novák']);
+      setRow(sheets.S, 3, [1, 'D', '10. PTO Severka', undefined, undefined, 'Eva', 'Nová']);
     });
     expect(issues).toEqual([{ sheet: 'S', row: 3, message: expect.stringContaining('Číslo 1') }]);
   });

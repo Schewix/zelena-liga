@@ -6,12 +6,12 @@ export const PATROL_IMPORT_CATEGORIES = ['N', 'M', 'S', 'R'] as const;
 export type PatrolImportCategory = (typeof PATROL_IMPORT_CATEGORIES)[number];
 export const PATROL_IMPORT_MAX_NUMBER = 50;
 export const PATROL_IMPORT_CHILD_COUNT = 3;
-const MAX_TROOPS_PER_PATROL = 2;
+const MAX_TROOPS_PER_PATROL = 3;
 const LISTS_SHEET = 'Seznamy';
 const FIRST_DATA_ROW = 2;
 
-// A: číslo, B: pohlaví, C-D: oddíly, potom po čtyřech sloupcích na dítě (jméno, příjmení, přezdívka, oddíl).
-const CHILD_FIRST_COLUMN = 5;
+// A: číslo, B: pohlaví, C-E: oddíly (až tři), potom po čtyřech sloupcích na dítě (jméno, příjmení, přezdívka, oddíl).
+const CHILD_FIRST_COLUMN = 6;
 const CHILD_COLUMN_COUNT = 4;
 
 export type PatrolImportRow = {
@@ -33,12 +33,13 @@ export async function buildPatrolImportTemplate(troopOptions: readonly string[])
   const troopRange = `${LISTS_SHEET}!$A$2:$A$${lastTroopRow}`;
 
   PATROL_IMPORT_CATEGORIES.forEach((category) => {
-    const sheet = workbook.addWorksheet(category, { views: [{ state: 'frozen', ySplit: 1 }] });
+    const sheet = workbook.addWorksheet(category, { views: [{ state: 'frozen', xSplit: 1, ySplit: 1 }] });
     const headers = [
       'Startovní číslo',
       'Pohlaví',
       'Oddíl 1',
       'Oddíl 2 (smíšená hlídka)',
+      'Oddíl 3 (smíšená hlídka)',
     ];
     for (let child = 1; child <= PATROL_IMPORT_CHILD_COUNT; child += 1) {
       headers.push(`Jméno ${child}`, `Příjmení ${child}`, `Přezdívka ${child}`, `Oddíl ${child}. člena`);
@@ -54,7 +55,8 @@ export async function buildPatrolImportTemplate(troopOptions: readonly string[])
     sheet.getCell('A1').note = `Číslo 1–${PATROL_IMPORT_MAX_NUMBER}. Číslo je v rámci kategorie společné pro H i D.`;
     sheet.getCell('B1').note = 'Vyber H (hoši) nebo D (dívky).';
     sheet.getCell('C1').note = 'Vyber oddíl ze seznamu.';
-    sheet.getCell('D1').note = 'Vyplň jen u smíšené hlídky (dva oddíly). Pak vyplň oddíl u každého člena.';
+    sheet.getCell('D1').note = 'Vyplň jen u smíšené hlídky (dva nebo tři oddíly). Pak vyplň oddíl u každého člena.';
+    sheet.getCell('E1').note = 'Vyplň jen u smíšené hlídky ze tří oddílů.';
     sheet.getCell(1, CHILD_FIRST_COLUMN + 2).note = 'Přezdívka je nepovinná.';
     sheet.getCell(1, CHILD_FIRST_COLUMN + 3).note = 'Vybírá se jen z oddílů hlídky. Povinné jen u smíšené hlídky.';
 
@@ -62,6 +64,7 @@ export async function buildPatrolImportTemplate(troopOptions: readonly string[])
     sheet.getColumn(2).width = 9;
     sheet.getColumn(3).width = 24;
     sheet.getColumn(4).width = 24;
+    sheet.getColumn(5).width = 24;
     for (let child = 0; child < PATROL_IMPORT_CHILD_COUNT; child += 1) {
       const start = CHILD_FIRST_COLUMN + child * CHILD_COLUMN_COUNT;
       sheet.getColumn(start).width = 14;
@@ -93,7 +96,7 @@ export async function buildPatrolImportTemplate(troopOptions: readonly string[])
         errorTitle: 'Neplatné pohlaví',
         error: 'Povolené hodnoty jsou H nebo D.',
       };
-      [3, 4].forEach((column) => {
+      [3, 4, 5].forEach((column) => {
         sheet.getCell(row, column).dataValidation = {
           type: 'list',
           allowBlank: true,
@@ -121,11 +124,11 @@ export async function buildPatrolImportTemplate(troopOptions: readonly string[])
         sheet.getCell(row, start + 3).dataValidation = {
           type: 'list',
           allowBlank: true,
-          formulae: [`$C${row}:$D${row}`],
+          formulae: [`$C${row}:$E${row}`],
           showErrorMessage: true,
           errorStyle: 'stop',
           errorTitle: 'Neplatný oddíl',
-          error: 'Vyber jeden z oddílů hlídky (sloupce Oddíl 1 a Oddíl 2).',
+          error: 'Vyber jeden z oddílů hlídky (sloupce Oddíl 1 až Oddíl 3).',
         };
       }
     }
@@ -188,7 +191,7 @@ export async function parsePatrolImportWorkbook(buffer: ArrayBuffer, troopOption
       const row = sheet.getRow(rowNumber);
       const numberText = cellText(row.getCell(1));
       const sexText = cellText(row.getCell(2)).toUpperCase();
-      const troopTexts = [cellText(row.getCell(3)), cellText(row.getCell(4))].filter(Boolean);
+      const troopTexts = [3, 4, 5].map((column) => cellText(row.getCell(column))).filter(Boolean);
       const children: PatrolProfileChildRow[] = [];
       let hasChildData = false;
       for (let child = 0; child < PATROL_IMPORT_CHILD_COUNT; child += 1) {
@@ -232,7 +235,7 @@ export async function parsePatrolImportWorkbook(buffer: ArrayBuffer, troopOption
         continue;
       }
       if (troopTexts.length > MAX_TROOPS_PER_PATROL) {
-        fail('Hlídka může mít nejvýše dva oddíly.');
+        fail('Hlídka může mít nejvýše tři oddíly.');
         continue;
       }
       const troops: string[] = [];
