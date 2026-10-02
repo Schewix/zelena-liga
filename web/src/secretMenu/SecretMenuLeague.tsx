@@ -36,11 +36,13 @@ export function getLeagueDraftSummary(draft: LeagueDraft) {
 export default function SecretMenuLeague({
   draft,
   onDraftChange,
-  onDraftClear,
+  onDraftDiscard,
+  onDraftSubmitted,
 }: {
   draft: LeagueDraft;
   onDraftChange: (itemId: string, delta: number) => void;
-  onDraftClear: () => void;
+  onDraftDiscard: () => void;
+  onDraftSubmitted: () => void;
 }) {
   const [participant, setParticipant] = useState<AfterpartyParticipant | null>(null);
   const [profileForm, setProfileForm] = useState({ displayName: '', troopName: '' });
@@ -266,7 +268,7 @@ export default function SecretMenuLeague({
         throw itemsError;
       }
 
-      onDraftClear();
+      onDraftSubmitted();
       setReceiptFile(null);
       setSuccess('Účtenka je odeslaná ke kontrole. Body se připíšou po schválení.');
       await loadOrders(participant.id);
@@ -381,7 +383,7 @@ export default function SecretMenuLeague({
             <button type="button" className="secret-menu-primary" onClick={handleSubmitOrder} disabled={submitting}>
               {submitting ? 'Odesílám…' : 'Odeslat ke kontrole'}
             </button>
-            <button type="button" className="secret-menu-secondary" onClick={onDraftClear} disabled={submitting}>
+            <button type="button" className="secret-menu-secondary" onClick={onDraftDiscard} disabled={submitting}>
               Vyprázdnit
             </button>
           </div>
