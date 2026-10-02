@@ -3,7 +3,8 @@ useEffect,
 useState
 } from 'react';
 import { SiteShell } from '../layout/SiteShell';
-import { addCompetitionRanks,buildLeagueRows,formatLeagueScore,getActiveLeagueSeason,HISTORICAL_LEAGUE_EMBED_URL,HISTORICAL_LEAGUE_VIEW_URL,LeagueData } from './model';
+import { LeagueHistoryTable } from './LeagueHistoryTable';
+import { addCompetitionRanks,buildLeagueRows,formatLeagueScore,getActiveLeagueSeason,LeagueData } from './model';
 
 export function LeagueStandingsPage({ leagueData }: { leagueData: LeagueData }) {
   const [selectedSeasonId, setSelectedSeasonId] = useState(leagueData.activeSeasonId);
@@ -74,28 +75,7 @@ export function LeagueStandingsPage({ leagueData }: { leagueData: LeagueData }) 
             ))}
           </div>
         </div>
-        <div className="homepage-card homepage-league-history-card">
-          <h2>Historická tabulka</h2>
-          {HISTORICAL_LEAGUE_EMBED_URL ? (
-            <>
-              <div className="homepage-league-embed">
-                <iframe
-                  src={HISTORICAL_LEAGUE_EMBED_URL}
-                  title="Historické pořadí Zelené ligy"
-                  loading="lazy"
-                  allowFullScreen
-                />
-              </div>
-              <div className="homepage-league-embed-actions">
-                <a className="homepage-inline-link" href={HISTORICAL_LEAGUE_VIEW_URL} target="_blank" rel="noreferrer">
-                  Otevřít historickou tabulku samostatně
-                </a>
-              </div>
-            </>
-          ) : (
-            <p>Sem vložíme Google tabulku s historickým pořadím. Pošli prosím embed link.</p>
-          )}
-        </div>
+        <LeagueHistoryTable />
       </main>
     </SiteShell>
   );

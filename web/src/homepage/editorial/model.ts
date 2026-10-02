@@ -173,6 +173,7 @@ export const EMPTY_SCHEDULE_FORM: EditorScheduleFormState = {
 export const EDITOR_SECTIONS = [
   { id: 'clanky', label: 'Články' },
   { id: 'poradi-zl', label: 'Pořadí Zelené ligy' },
+  { id: 'historie-zl', label: 'Historická tabulka' },
   { id: 'body-zl', label: 'Výpočet bodů ZL' },
   { id: 'alba', label: 'Názvy alb' },
   { id: 'dokumenty', label: 'Dokumenty' },

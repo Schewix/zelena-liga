@@ -9,6 +9,7 @@ import { handlePublicDetail,handlePublicList } from '../api-lib/content/articles
 import { handleAdminDocument,handleAdminDocuments,handlePublicDocuments } from '../api-lib/content/documents/handlers.js';
 import { handleAdminDocumentUpload } from '../api-lib/content/documents/upload.js';
 import { handleAdminLeague,handlePublicLeague } from '../api-lib/content/league.js';
+import { handleAdminLeagueHistory,handlePublicLeagueHistory } from '../api-lib/content/leagueHistory.js';
 import { handleAdminScheduleEvent,handleAdminScheduleEvents,handlePublicSchedule } from '../api-lib/content/schedule.js';
 import { handleAdminLogin,handleAdminLogout,handleAdminSession } from '../api-lib/content/session.js';
 import { handlePublicSeoPage } from '../api-lib/content/seoHandler.js';
@@ -71,6 +72,11 @@ async function handler(req: any, res: any) {
 
   if (segments[0] === 'league') {
     await handlePublicLeague(req, res);
+    return;
+  }
+
+  if (segments[0] === 'league-history') {
+    await handlePublicLeagueHistory(req, res);
     return;
   }
 
@@ -160,6 +166,10 @@ async function handler(req: any, res: any) {
     }
     if (action === 'league') {
       await handleAdminLeague(req, res);
+      return;
+    }
+    if (action === 'league-history') {
+      await handleAdminLeagueHistory(req, res);
       return;
     }
     if (action === 'afterparty') {

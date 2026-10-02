@@ -22,6 +22,7 @@ import { escapeHtml,formatDocumentDate,formatFileSize,normalizeEditorBodyHtml,sl
 import { CONTENT_ARTICLE_ALLOWED_IMAGE_TYPES,CONTENT_ARTICLE_FONT_SIZE_OPTIONS,CONTENT_ARTICLE_IMAGES_BUCKET,CONTENT_DOCUMENT_MAX_SIZE,EDITOR_SECTIONS,EMPTY_DOCUMENT_FORM,EMPTY_EDITOR_FORM,EMPTY_SCHEDULE_FORM,EditorArticle,EditorDocument,EditorDocumentFormState,EditorDocumentLink,EditorFormState,EditorScheduleEvent,EditorScheduleFormState,EditorSection,EditorSignedImageUpload,editorDocumentLinks,readEditorSection } from './model';
 import { ArticleEditorSection } from './components/ArticleEditorSection';
 import { LeagueEditorSection } from './components/LeagueEditorSection';
+import { LeagueHistoryEditorSection } from './components/LeagueHistoryEditorSection';
 import { DocumentsEditorSection } from './components/DocumentsEditorSection';
 import { NameCheckSection } from './components/NameCheckSection';
 import { ScheduleEditorSection } from './components/ScheduleEditorSection';
@@ -1233,6 +1234,7 @@ message={message}
 handleDelete={handleDelete}
 handleSave={handleSave}
 />
+            <LeagueHistoryEditorSection activeSection={activeSection} />
             <LeagueEditorSection
 activeSection={activeSection}
 handleLeagueSave={handleLeagueSave}

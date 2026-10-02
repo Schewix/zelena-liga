@@ -101,12 +101,6 @@ export const CURRENT_LEAGUE_SCORES: Record<string, Partial<Record<LeagueEvent, n
   'zabky-jedovnice': { 'pto-ob': 0 },
 };
 
-export const HISTORICAL_LEAGUE_EMBED_URL =
-  'https://docs.google.com/spreadsheets/d/e/2PACX-1vTgnHQSwUJSNQF_cfCEwRshBNhh67JWuV_EQO5urCaWgxlvAXLxAc8F8Nrt4PVsrw/pubhtml?gid=252350504&single=true&widget=false&headers=false';
-
-export const HISTORICAL_LEAGUE_VIEW_URL =
-  'https://docs.google.com/spreadsheets/d/e/2PACX-1vTgnHQSwUJSNQF_cfCEwRshBNhh67JWuV_EQO5urCaWgxlvAXLxAc8F8Nrt4PVsrw/pubhtml?gid=252350504&single=true';
-
 export function formatLeagueScore(value: number | null) {
   if (value === null || Number.isNaN(value)) {
     return '—';

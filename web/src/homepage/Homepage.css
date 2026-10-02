@@ -4948,3 +4948,157 @@ a.schedule-doc-link:focus-visible {
 .community-form {
   width: 100%;
 }
+
+.homepage-league-history-scroll {
+  margin-top: 12px;
+  overflow: auto;
+  max-height: 80vh;
+  border-radius: 16px;
+  border: 1px solid rgba(4, 55, 44, 0.12);
+}
+
+.homepage-league-history-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: max-content;
+  min-width: 100%;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.homepage-league-history-table th,
+.homepage-league-history-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(4, 55, 44, 0.1);
+  background: #fff;
+  white-space: nowrap;
+}
+
+.homepage-league-history-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #eef3f0;
+  font-size: 0.75rem;
+  color: rgba(4, 55, 44, 0.75);
+}
+
+.homepage-league-history-table thead th small {
+  display: block;
+  font-weight: 500;
+}
+
+.homepage-league-history-table .is-rank,
+.homepage-league-history-table .is-number,
+.homepage-league-history-table .is-name {
+  position: sticky;
+  z-index: 1;
+}
+
+.homepage-league-history-table thead .is-rank,
+.homepage-league-history-table thead .is-number,
+.homepage-league-history-table thead .is-name {
+  z-index: 3;
+}
+
+.homepage-league-history-table .is-rank {
+  left: 0;
+  min-width: 64px;
+  font-weight: 700;
+  color: #04372c;
+}
+
+.homepage-league-history-table .is-number {
+  left: 64px;
+  min-width: 44px;
+}
+
+.homepage-league-history-table .is-name {
+  left: 108px;
+  min-width: 180px;
+  text-align: left;
+  font-weight: 600;
+  box-shadow: 1px 0 0 rgba(4, 55, 44, 0.15);
+}
+
+.homepage-league-history-table .is-total {
+  font-weight: 700;
+  color: #04372c;
+  background: rgba(255, 204, 51, 0.16);
+}
+
+@media (max-width: 640px) {
+  .homepage-league-history-table .is-rank,
+  .homepage-league-history-table .is-number {
+    position: static;
+  }
+
+  .homepage-league-history-table .is-name {
+    left: 0;
+    min-width: 140px;
+  }
+}
+
+.editor-league-history-table {
+  border-collapse: collapse;
+  width: max-content;
+  min-width: 100%;
+  font-size: 0.9rem;
+}
+
+.editor-league-history-table th,
+.editor-league-history-table td {
+  padding: 4px;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.editor-league-history-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #eef3f0;
+  font-size: 0.75rem;
+}
+
+.editor-league-history-table input {
+  margin: 0;
+  padding: 6px;
+  text-align: center;
+}
+
+.editor-league-history-table input.is-points {
+  width: 58px;
+}
+
+.editor-league-history-table input.is-ordinal {
+  width: 58px;
+}
+
+.editor-league-history-table input.is-number {
+  width: 56px;
+}
+
+.editor-league-history-table input.is-name {
+  width: 200px;
+  text-align: left;
+}
+
+.editor-league-history-table .is-total {
+  font-weight: 700;
+  color: #04372c;
+}
+
+.editor-league-history-table td.is-sticky,
+.editor-league-history-table th.is-sticky {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: #fff;
+}
+
+.editor-league-history-table thead th.is-sticky {
+  z-index: 3;
+  background: #eef3f0;
+}

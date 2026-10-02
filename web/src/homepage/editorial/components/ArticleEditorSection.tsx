@@ -13,7 +13,7 @@ type FormEvent
 import { CONTENT_ARTICLE_ALLOWED_IMAGE_TYPES,CONTENT_ARTICLE_FONT_SIZE_OPTIONS,CONTENT_ARTICLE_IMAGES_BUCKET,CONTENT_DOCUMENT_MAX_SIZE,EDITOR_SECTIONS,EMPTY_DOCUMENT_FORM,EMPTY_EDITOR_FORM,EMPTY_SCHEDULE_FORM,EditorArticle,EditorDocument,EditorDocumentFormState,EditorDocumentLink,EditorFormState,EditorScheduleEvent,EditorScheduleFormState,EditorSection,EditorSignedImageUpload,editorDocumentLinks,readEditorSection } from '../model';
 
 export type ArticleEditorSectionProps = {
-activeSection: "clanky" | "poradi-zl" | "body-zl" | "alba" | "dokumenty" | "terminy" | "kontrola-jmen";
+activeSection: "clanky" | "poradi-zl" | "historie-zl" | "body-zl" | "alba" | "dokumenty" | "terminy" | "kontrola-jmen";
 handleNew: () => void;
 articles: EditorArticle[];
 activeId: string | null;
