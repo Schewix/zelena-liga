@@ -1,12 +1,4 @@
-import {
-AFTERPARTY_DRINK_BY_KEY,
-AFTERPARTY_DRINK_ITEMS,
-AFTERPARTY_DRINK_MENU,
-createEmptyAfterpartyCounts
-} from '../../afterparty';
 import { LEAGUE_TROOPS } from '../league/model';
-
-export const AFTERPARTY_STORAGE_KEY = 'zl-afterparty-counter-v2';
 
 export const AFTERPARTY_PARTICIPANT_STORAGE_KEY = 'zl-afterparty-participant-v1';
 
@@ -15,15 +7,6 @@ export const AFTERPARTY_RECEIPTS_BUCKET = 'afterparty-receipts';
 export const AFTERPARTY_TRIGGER_CLICK_COUNT = 5;
 
 export const AFTERPARTY_TRIGGER_WINDOW_MS = 2000;
-
-export type PersonalDrinkKey = string;
-
-export type PersonalDrinkCounts = Record<string, number>;
-
-export type PersonalDrinkStorageState = {
-  selected: PersonalDrinkKey[];
-  counts: PersonalDrinkCounts;
-};
 
 export type AfterpartyParticipant = {
   id: string;
@@ -76,11 +59,7 @@ export type AfterpartyTroopLeaderboardRow = {
   approved_orders: number;
 };
 
-export type AfterpartyCounterMode = 'counter' | 'league';
-
 export type AfterpartyAdminSessionState = 'checking' | 'unauthorized' | 'authorized';
-
-export type AfterpartyDrinkCategory = (typeof AFTERPARTY_DRINK_MENU)[number]['category'];
 
 export const AFTERPARTY_TROOP_OPTIONS = LEAGUE_TROOPS.map((troop) => troop.name).sort((a, b) => {
   const aMatch = a.match(/^(\d+)\./);
@@ -103,27 +82,6 @@ export const AFTERPARTY_TROOP_OPTIONS = LEAGUE_TROOPS.map((troop) => troop.name)
   return a.localeCompare(b, 'cs', { sensitivity: 'base' });
 });
 
-export function createEmptyPersonalDrinkCounts(): PersonalDrinkCounts {
-  return createEmptyAfterpartyCounts();
-}
-
-export function isPersonalDrinkKey(value: unknown): value is PersonalDrinkKey {
-  return typeof value === 'string' && AFTERPARTY_DRINK_BY_KEY.has(value);
-}
-
-export function sanitizePersonalDrinkSelection(value: unknown): PersonalDrinkKey[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  const selected: PersonalDrinkKey[] = [];
-  for (const candidate of value) {
-    if (isPersonalDrinkKey(candidate) && !selected.includes(candidate)) {
-      selected.push(candidate);
-    }
-  }
-  return selected;
-}
-
 export function parseAfterpartyNonNegativeInt(value: unknown, fallback: number): number {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return Math.max(0, Math.round(value));
@@ -143,41 +101,6 @@ export function normalizeAfterpartyTroopName(value: string): string {
     return '';
   }
   return AFTERPARTY_TROOP_OPTIONS.some((option) => option === trimmed) ? trimmed : '';
-}
-
-export function loadPersonalDrinkStateFromStorage(): PersonalDrinkStorageState {
-  const defaults = createEmptyPersonalDrinkCounts();
-  if (typeof window === 'undefined') {
-    return { selected: [], counts: defaults };
-  }
-
-  try {
-    const raw = window.localStorage.getItem(AFTERPARTY_STORAGE_KEY);
-    if (!raw) {
-      return { selected: [], counts: defaults };
-    }
-
-    const parsed = JSON.parse(raw) as unknown;
-    const parsedObject =
-      parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : ({} as Record<string, unknown>);
-    const parsedCounts =
-      parsedObject.counts && typeof parsedObject.counts === 'object'
-        ? (parsedObject.counts as Record<string, unknown>)
-        : parsedObject;
-    const counts: PersonalDrinkCounts = AFTERPARTY_DRINK_ITEMS.reduce<PersonalDrinkCounts>((acc, item) => {
-      acc[item.key] = parseAfterpartyNonNegativeInt(parsedCounts[item.key], defaults[item.key]);
-      return acc;
-    }, {});
-    const selected = sanitizePersonalDrinkSelection(parsedObject.selected);
-    if (selected.length > 0) {
-      return { selected, counts };
-    }
-
-    const selectedFromCounts = AFTERPARTY_DRINK_ITEMS.filter((item) => counts[item.key] > 0).map((item) => item.key);
-    return { selected: selectedFromCounts, counts };
-  } catch {
-    return { selected: [], counts: defaults };
-  }
 }
 
 export function formatAfterpartyDate(value: string | null | undefined) {

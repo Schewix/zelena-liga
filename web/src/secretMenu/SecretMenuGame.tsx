@@ -3,6 +3,7 @@ import { useAuth } from '../auth/context';
 import {
   MENU_CATEGORY_LABELS,
   MENU_CATEGORY_ORDER,
+  MENU_ITEM_BY_ID,
   MENU_ITEMS,
   type MenuCategory,
   type MenuItem,
@@ -15,10 +16,30 @@ import {
   removeConsumedItem,
   type SecretMenuState,
 } from './gamification';
+import SecretMenuLeague, { getLeagueDraftSummary, type LeagueDraft } from './SecretMenuLeague';
 import './SecretMenuGame.css';
+
+type SecretMenuMode = 'play' | 'league';
 
 const SECRET_MENU_STORAGE_PREFIX = 'zl-secret-menu-game-v1';
 const ANONYMOUS_SECRET_MENU_STORAGE_ID = 'anonymous';
+const LEAGUE_DRAFT_STORAGE_KEY = 'zl-secret-menu-league-draft-v1';
+
+function loadLeagueDraft(): LeagueDraft {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(LEAGUE_DRAFT_STORAGE_KEY) ?? '{}') as unknown;
+    if (!parsed || typeof parsed !== 'object') {
+      return {};
+    }
+    return Object.fromEntries(
+      Object.entries(parsed as Record<string, unknown>).filter(
+        ([itemId, quantity]) => MENU_ITEM_BY_ID.has(itemId) && typeof quantity === 'number' && quantity > 0,
+      ),
+    ) as LeagueDraft;
+  } catch {
+    return {};
+  }
+}
 
 function createStorageKey(userId: string) {
   return `${SECRET_MENU_STORAGE_PREFIX}:${userId}`;
@@ -45,10 +66,12 @@ function categoryLabel(category: MenuCategory) {
 function SecretMenuItemButton({
   item,
   consumedCount,
+  showFirstTimeBonus,
   onAdd,
 }: {
   item: MenuItem;
   consumedCount: number;
+  showFirstTimeBonus: boolean;
   onAdd: () => void;
 }) {
   return (
@@ -56,7 +79,7 @@ function SecretMenuItemButton({
       <span>
         <strong>{item.name}</strong>
         <small>
-          {item.points} bodů{consumedCount === 0 ? ' · první ochutnání +20' : ''}
+          {item.points} bodů{showFirstTimeBonus && consumedCount === 0 ? ' · první ochutnání +20' : ''}
         </small>
       </span>
       <span className={consumedCount > 0 ? 'secret-menu-count is-active' : 'secret-menu-count'}>
@@ -72,6 +95,8 @@ export default function SecretMenuGame({ open, onClose }: { open: boolean; onClo
   const [query, setQuery] = useState('');
   const [state, setState] = useState<SecretMenuState>(() => createEmptySecretMenuState());
   const [loadedStorageKey, setLoadedStorageKey] = useState<string | null>(null);
+  const [mode, setMode] = useState<SecretMenuMode>('play');
+  const [leagueDraft, setLeagueDraft] = useState<LeagueDraft>(() => loadLeagueDraft());
 
   const storageKey =
     status.state === 'authenticated'
@@ -97,6 +122,14 @@ export default function SecretMenuGame({ open, onClose }: { open: boolean; onClo
     }
     window.localStorage.setItem(storageKey, JSON.stringify(state));
   }, [loadedStorageKey, open, state, storageKey]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(LEAGUE_DRAFT_STORAGE_KEY, JSON.stringify(leagueDraft));
+    } catch {
+      // Ignore localStorage write errors in private browsing or blocked contexts.
+    }
+  }, [leagueDraft]);
 
   useEffect(() => {
     if (!open) {
@@ -136,8 +169,27 @@ export default function SecretMenuGame({ open, onClose }: { open: boolean; onClo
   }
 
   const handleAddItem = (itemId: string) => {
+    if (mode === 'league') {
+      handleDraftChange(itemId, 1);
+      return;
+    }
     setState((current) => addConsumedItem(current, itemId));
   };
+
+  const handleDraftChange = (itemId: string, delta: number) => {
+    setLeagueDraft((current) => {
+      const quantity = Math.max(0, (current[itemId] ?? 0) + delta);
+      const next = { ...current };
+      if (quantity > 0) {
+        next[itemId] = quantity;
+      } else {
+        delete next[itemId];
+      }
+      return next;
+    });
+  };
+
+  const leagueDraftSummary = getLeagueDraftSummary(leagueDraft);
 
   const handleRemoveEntry = (entryId: string) => {
     setState((current) => removeConsumedItem(current, entryId));
@@ -171,6 +223,35 @@ export default function SecretMenuGame({ open, onClose }: { open: boolean; onClo
           </button>
         </header>
 
+        <div className="secret-menu-mode-switch" role="tablist" aria-label="Režim">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === 'play'}
+            className={mode === 'play' ? 'is-active' : ''}
+            onClick={() => setMode('play')}
+          >
+            Jen hrát
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === 'league'}
+            className={mode === 'league' ? 'is-active' : ''}
+            onClick={() => setMode('league')}
+          >
+            Soutěžit
+            {leagueDraftSummary.items > 0 ? ` (${leagueDraftSummary.items})` : ''}
+          </button>
+        </div>
+
+        {mode === 'league' ? (
+          <SecretMenuLeague
+            draft={leagueDraft}
+            onDraftChange={handleDraftChange}
+            onDraftClear={() => setLeagueDraft({})}
+          />
+        ) : (
         <section className="secret-menu-hero">
           <article className="secret-menu-card secret-menu-profile">
             <p className="secret-menu-kicker">Profil</p>
@@ -211,11 +292,12 @@ export default function SecretMenuGame({ open, onClose }: { open: boolean; onClo
             </p>
           </article>
         </section>
+        )}
 
         <section className="secret-menu-card">
           <div className="secret-menu-section-head">
             <div>
-              <p className="secret-menu-kicker">Sbírka</p>
+              <p className="secret-menu-kicker">{mode === 'league' ? 'Účtenka' : 'Sbírka'}</p>
               <h3>Přidat položku</h3>
             </div>
             <label className="secret-menu-search">
@@ -246,13 +328,16 @@ export default function SecretMenuGame({ open, onClose }: { open: boolean; onClo
               <SecretMenuItemButton
                 key={item.id}
                 item={item}
-                consumedCount={consumedCounts[item.id] ?? 0}
+                consumedCount={mode === 'league' ? (leagueDraft[item.id] ?? 0) : (consumedCounts[item.id] ?? 0)}
+                showFirstTimeBonus={mode === 'play'}
                 onAdd={() => handleAddItem(item.id)}
               />
             ))}
           </div>
         </section>
 
+        {mode === 'play' ? (
+          <>
         <section className="secret-menu-grid">
           <article className="secret-menu-card">
             <p className="secret-menu-kicker">Achievementy</p>
@@ -329,6 +414,8 @@ export default function SecretMenuGame({ open, onClose }: { open: boolean; onClo
             </div>
           )}
         </section>
+          </>
+        ) : null}
       </div>
     </div>
   );
