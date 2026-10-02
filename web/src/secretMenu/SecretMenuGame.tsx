@@ -342,8 +342,8 @@ export default function SecretMenuGame({ open, onClose }: { open: boolean; onClo
               <strong>{statistics.menuCompletion.percent}%</strong>
             </div>
             <p>
-              {statistics.menuCompletion.consumedItems} z {statistics.menuCompletion.totalItems} položek ·{' '}
-              {statistics.unlockedAchievements.length} achievementů odemčeno
+              {statistics.menuCompletion.consumedItems} z {statistics.menuCompletion.totalItems} položek
+              {mode === 'league' ? ` · ${statistics.unlockedAchievements.length} achievementů odemčeno` : ''}
             </p>
           </article>
         </section>
@@ -391,6 +391,7 @@ export default function SecretMenuGame({ open, onClose }: { open: boolean; onClo
           </div>
         </section>
 
+        {mode === 'league' ? (
         <section className="secret-menu-grid">
           <article className="secret-menu-card">
             <p className="secret-menu-kicker">Achievementy</p>
@@ -435,6 +436,8 @@ export default function SecretMenuGame({ open, onClose }: { open: boolean; onClo
             </div>
           </article>
         </section>
+
+        ) : null}
 
         {mode === 'play' ? (
         <section className="secret-menu-card">
