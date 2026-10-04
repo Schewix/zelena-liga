@@ -185,14 +185,14 @@ export async function parsePatrolTableLoosely(buffer: ArrayBuffer): Promise<{ ro
         if (kind) found.set(c, kind);
       }
       const kinds = new Set(found.values());
-      if (kinds.has('firstName') && kinds.has('lastName')) {
+      if (kinds.has('firstName')) {
         headerRow = r;
         columns = found;
       }
     }
     if (!headerRow) {
       if (sheet.rowCount > 0) {
-        issues.push({ sheet: sheetName, row: null, message: 'List přeskočen: nenašel jsem hlavičku se sloupci Jméno a Příjmení.' });
+        issues.push({ sheet: sheetName, row: null, message: 'List přeskočen: nenašel jsem hlavičku se sloupcem Jméno.' });
       }
       return;
     }
@@ -219,9 +219,19 @@ export async function parsePatrolTableLoosely(buffer: ArrayBuffer): Promise<{ ro
     for (let r = headerRow + 1; r <= sheet.rowCount; r += 1) {
       const row = sheet.getRow(r);
       const members: PatrolProfileChildRow[] = groups
-        .map((g) => ({
-          firstName: g.firstName ? cellText(row.getCell(g.firstName)) : '',
-          lastName: g.lastName ? cellText(row.getCell(g.lastName)) : '',
+        .map((g) => {
+          const first = g.firstName ? cellText(row.getCell(g.firstName)) : '';
+          // Without a surname column the "Jméno" cell holds the full name: split it at the first space.
+          const space = g.lastName ? -1 : first.indexOf(' ');
+          return {
+            first: space > 0 ? first.slice(0, space) : first,
+            last: g.lastName ? cellText(row.getCell(g.lastName)) : space > 0 ? first.slice(space + 1).trim() : '',
+            g,
+          };
+        })
+        .map(({ first, last, g }) => ({
+          firstName: first,
+          lastName: last,
           nickname: g.nickname ? cellText(row.getCell(g.nickname)) : '',
           troop: g.memberTroop ? cellText(row.getCell(g.memberTroop)) : '',
         }))
