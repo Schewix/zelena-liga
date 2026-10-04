@@ -188,6 +188,7 @@ const ALIASES = {
   nameColumn: [
     'hlidka',
     'cislo hlidky',
+    'nazev hlidky',
     'soutezici',
     'jmeno',
     'jmeno a prijmeni',
@@ -196,7 +197,7 @@ const ALIASES = {
     'zavodnik',
   ],
   troopColumn: ['oddil', 'nazev oddilu', 'pto', 'klub'],
-  scoreColumn: ['body celkem', 'celkem', 'vysledek', 'body', 'celkovy cas', 'cas'],
+  scoreColumn: ['body celkem', 'celkem', 'vysledek', 'body', 'celkovy cas', 'cas', 'dosazeny cas', 'skore'],
   categoryColumn: ['kategorie'],
   sexColumn: ['pohlavi', 'sex'],
   statusColumn: ['stav', 'status', 'poradi', '#'],
@@ -207,37 +208,80 @@ export function describeLeagueGroup(group: string): string {
   return `${group} – ${match[1].toUpperCase() === 'H' ? 'hoši' : 'dívky'}, věková kategorie ${match[2]}`;
 }
 
-export function guessMapping(sheet: ExcelJS.Worksheet, headerRow = 1): SheetMapping {
+const MAPPING_FIELDS = Object.keys(ALIASES) as (keyof typeof ALIASES)[];
+const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** Finds columns by header text: exact alias first, then alias as a whole word inside a longer header. */
+function matchColumns(sheet: ExcelJS.Worksheet, headerRow: number) {
+  const headers: string[] = [];
+  for (let column = 1; column <= sheet.columnCount; column++)
+    headers[column] = normalize(cellText(sheet.getCell(headerRow, column)));
+  const found: Partial<Record<keyof typeof ALIASES, number>> = {};
+  const used = new Set<number>();
+  for (const pass of ['exact', 'word'] as const) {
+    for (const field of MAPPING_FIELDS) {
+      if (found[field]) continue;
+      for (const alias of ALIASES[field]) {
+        const pattern = new RegExp(`(^|[^a-z0-9])${escapeRegExp(alias)}($|[^a-z0-9])`);
+        const column = headers.findIndex(
+          (header, index) =>
+            index > 0 && !used.has(index) && (pass === 'exact' ? header === alias : pattern.test(header)),
+        );
+        if (column > 0) {
+          found[field] = column;
+          used.add(column);
+          break;
+        }
+      }
+    }
+  }
+  return found;
+}
+
+/**
+ * Guesses the sheet layout. Without an explicit header row it looks for the row (within the first 15) that
+ * matches the most known headers, so titles or blank rows above the table don't matter.
+ */
+export function guessMapping(sheet: ExcelJS.Worksheet, headerRow?: number): SheetMapping {
+  let row = headerRow ?? 1;
+  let found = matchColumns(sheet, row);
+  if (headerRow === undefined) {
+    let best = Object.keys(found).length;
+    for (let candidate = 2; candidate <= Math.min(sheet.rowCount, 15); candidate++) {
+      const candidateFound = matchColumns(sheet, candidate);
+      if (Object.keys(candidateFound).length > best) {
+        best = Object.keys(candidateFound).length;
+        row = candidate;
+        found = candidateFound;
+      }
+    }
+  }
+  let endRow = sheet.rowCount;
+  const rowIsEmpty = (r: number) =>
+    ![found.nameColumn, found.troopColumn, found.scoreColumn].some(
+      (column) => column && cellText(sheet.getCell(r, column)),
+    );
+  while (endRow > row + 1 && rowIsEmpty(endRow)) endRow--;
   const mapping: SheetMapping = {
     sheet: sheet.name,
-    enabled: sheet.state === 'visible',
-    headerRow,
-    endRow: sheet.rowCount,
-    nameColumn: 0,
-    troopColumn: 0,
-    scoreColumn: 0,
-    categoryColumn: 0,
-    sexColumn: 0,
-    statusColumn: 0,
+    // Sheets without name, troop and result columns are not result tables (summaries, lists…).
+    enabled: sheet.state === 'visible' && !!(found.nameColumn && found.troopColumn && found.scoreColumn),
+    headerRow: row,
+    endRow,
+    nameColumn: found.nameColumn ?? 0,
+    troopColumn: found.troopColumn ?? 0,
+    scoreColumn: found.scoreColumn ?? 0,
+    categoryColumn: found.categoryColumn ?? 0,
+    sexColumn: found.sexColumn ?? 0,
+    statusColumn: found.statusColumn ?? 0,
     group: sheet.name,
     lowerIsBetter: false,
     scoreFormat: 'number',
   };
-  for (const [field, aliases] of Object.entries(ALIASES)) {
-    for (const alias of aliases) {
-      for (let column = 1; column <= sheet.columnCount; column++) {
-        if (normalize(cellText(sheet.getCell(headerRow, column))) === alias) {
-          mapping[field as keyof typeof ALIASES] = column;
-          break;
-        }
-      }
-      if (mapping[field as keyof typeof ALIASES]) break;
-    }
-  }
-  if (normalize(cellText(sheet.getCell(headerRow, mapping.scoreColumn || 1))).includes('cas'))
+  if (normalize(cellText(sheet.getCell(row, mapping.scoreColumn || 1))).includes('cas'))
     mapping.lowerIsBetter = true;
   if (mapping.scoreColumn) {
-    const example = sheet.getCell(headerRow + 1, mapping.scoreColumn);
+    const example = sheet.getCell(row + 1, mapping.scoreColumn);
     if (
       cellValue(example) instanceof Date ||
       /^(?:\d+:)?\d+:[0-5]?\d(?:[.,]\d+)?$/.test(cellText(example)) ||

@@ -146,7 +146,7 @@ export async function buildPatrolImportTemplate(troopOptions: readonly string[])
   return workbook;
 }
 
-function cellText(cell: ExcelJS.Cell | undefined) {
+export function cellText(cell: ExcelJS.Cell | undefined) {
   if (!cell) {
     return '';
   }

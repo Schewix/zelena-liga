@@ -1,5 +1,9 @@
 import type ExcelJS from 'exceljs';
 import type { PatrolImportIssue, PatrolImportRow } from '../../admin/patrolImport/workbook';
+import type { PatrolProfileChildRow } from '../../station/types';
+
+/** Like PatrolImportRow, but with free-form category (sheet name) and sex: the name check accepts any table layout. */
+export type NameCheckRow = Omit<PatrolImportRow, 'category' | 'sex'> & { category: string; sex: string };
 
 export type NameCheckTroopSummary = { troop: string; patrols: number; members: number; mixedPatrols: number };
 
@@ -10,30 +14,33 @@ export type NameCheckResult = {
   issues: PatrolImportIssue[];
 };
 
-const CATEGORY_ORDER = ['N', 'M', 'S', 'R'];
 const HEADERS = ['Kategorie', 'Hlídka', 'Pohlaví', 'Oddíly hlídky', 'Jméno', 'Příjmení', 'Přezdívka', 'Oddíl člena', 'Ke kontrole'];
 
-function patrolCode(row: PatrolImportRow) {
+function patrolCode(row: NameCheckRow) {
   return `${row.category}${row.sex}-${row.number}`;
 }
 
-function comparePatrols(a: PatrolImportRow, b: PatrolImportRow) {
-  const category = CATEGORY_ORDER.indexOf(a.category) - CATEGORY_ORDER.indexOf(b.category);
-  return category !== 0 ? category : a.number - b.number;
+/** Sorts by the order in which categories (sheets) appear in the table, then by number. */
+function createPatrolComparator(rows: readonly NameCheckRow[]) {
+  const order = Array.from(new Set(rows.map((row) => row.category)));
+  return (a: NameCheckRow, b: NameCheckRow) => {
+    const category = order.indexOf(a.category) - order.indexOf(b.category);
+    return category !== 0 ? category : a.number - b.number;
+  };
 }
 
 /**
  * Builds a workbook with one sheet per troop. A sheet lists every patrol the troop takes part in, including mixed
  * ones; in a mixed patrol the members of this troop are highlighted so the leader knows whom to check.
  */
-export async function buildNameCheckWorkbook(rows: readonly PatrolImportRow[], issues: PatrolImportIssue[] = []): Promise<NameCheckResult> {
+export async function buildNameCheckWorkbook(rows: readonly NameCheckRow[], issues: PatrolImportIssue[] = []): Promise<NameCheckResult> {
   const [{ default: ExcelJSModule }, { compareTroopSheetOrder }, { toWorksheetBaseName, toUniqueWorksheetName }] = await Promise.all([
     import('exceljs'),
     import('../../admin/setup/troops'),
     import('../../admin/exports/patrolWorkbook'),
   ]);
 
-  const patrolsByTroop = new Map<string, PatrolImportRow[]>();
+  const patrolsByTroop = new Map<string, NameCheckRow[]>();
   rows.forEach((row) => {
     row.troops.forEach((troop) => {
       patrolsByTroop.set(troop, [...(patrolsByTroop.get(troop) ?? []), row]);
@@ -48,6 +55,7 @@ export async function buildNameCheckWorkbook(rows: readonly PatrolImportRow[], i
   workbook.creator = 'Zelená liga';
   const usedNames = new Set<string>();
   const summaries: NameCheckTroopSummary[] = [];
+  const comparePatrols = createPatrolComparator(rows);
 
   troopNames.forEach((troop) => {
     const patrols = [...(patrolsByTroop.get(troop) ?? [])].sort(comparePatrols);
@@ -118,13 +126,139 @@ export async function buildNameCheckWorkbook(rows: readonly PatrolImportRow[], i
   return { workbook, troops: summaries, patrolCount: rows.length, issues };
 }
 
-/** Reads an uploaded patrol table (same layout as the import template) and converts it to the name check workbook. */
-export async function convertPatrolTableToNameCheck(buffer: ArrayBuffer): Promise<NameCheckResult> {
-  const [{ parsePatrolImportWorkbook }, { DEFAULT_SETUP_TROOP_OPTIONS }] = await Promise.all([
+type HeaderKind = 'category' | 'number' | 'sex' | 'troop' | 'firstName' | 'lastName' | 'nickname' | 'memberTroop';
+
+function normalizeHeader(text: string) {
+  return text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+function classifyHeader(text: string): HeaderKind | null {
+  const h = normalizeHeader(text);
+  if (!h) return null;
+  if (/^kategori/.test(h)) return 'category';
+  if (/pohlavi/.test(h)) return 'sex';
+  if (/^(startovni )?(cislo|c\.|cis|id)\b/.test(h) || /^(start|st\.? ?c)/.test(h)) return 'number';
+  if (/^jmeno|^krestni/.test(h)) return 'firstName';
+  if (/^prijmeni/.test(h)) return 'lastName';
+  if (/^prezdivka|^prezdivky|^nick/.test(h)) return 'nickname';
+  if (/^oddil/.test(h)) return /clen|\bclena\b/.test(h) ? 'memberTroop' : 'troop';
+  return null;
+}
+
+function normalizeSex(text: string) {
+  const t = normalizeHeader(text);
+  if (/^(h|hosi|hoch|kluk|m)\b/.test(t)) return 'H';
+  if (/^(d|divky|devce|z)\b/.test(t)) return 'D';
+  return text.trim().toUpperCase();
+}
+
+/**
+ * Lenient reader for the name check: any sheet names, any number of sheets, columns found by their header text
+ * (not by position). Sheet name is used as the category unless the table has a "Kategorie" column.
+ */
+export async function parsePatrolTableLoosely(buffer: ArrayBuffer): Promise<{ rows: NameCheckRow[]; issues: PatrolImportIssue[] }> {
+  const [{ default: ExcelJSModule }, { cellText }] = await Promise.all([
+    import('exceljs'),
     import('../../admin/patrolImport/workbook'),
-    import('../../admin/setup/troops'),
   ]);
-  // Unknown troops are kept as written: the table is only checked, not imported.
-  const parsed = await parsePatrolImportWorkbook(buffer, DEFAULT_SETUP_TROOP_OPTIONS, { allowUnknownTroops: true });
+  const workbook = new ExcelJSModule.Workbook();
+  try {
+    await workbook.xlsx.load(buffer);
+  } catch {
+    return { rows: [], issues: [{ sheet: '', row: null, message: 'Soubor se nepodařilo přečíst. Nahraj .xlsx.' }] };
+  }
+
+  const rows: NameCheckRow[] = [];
+  const issues: PatrolImportIssue[] = [];
+
+  workbook.worksheets.forEach((sheet) => {
+    if (sheet.state !== 'visible') return;
+    const sheetName = sheet.name.trim();
+
+    let headerRow = 0;
+    let columns = new Map<number, HeaderKind>();
+    for (let r = 1; r <= Math.min(sheet.rowCount, 15) && !headerRow; r += 1) {
+      const found = new Map<number, HeaderKind>();
+      const row = sheet.getRow(r);
+      for (let c = 1; c <= Math.max(sheet.columnCount, row.cellCount); c += 1) {
+        const kind = classifyHeader(cellText(row.getCell(c)));
+        if (kind) found.set(c, kind);
+      }
+      const kinds = new Set(found.values());
+      if (kinds.has('firstName') && kinds.has('lastName')) {
+        headerRow = r;
+        columns = found;
+      }
+    }
+    if (!headerRow) {
+      if (sheet.rowCount > 0) {
+        issues.push({ sheet: sheetName, row: null, message: 'List přeskočen: nenašel jsem hlavičku se sloupci Jméno a Příjmení.' });
+      }
+      return;
+    }
+
+    const colsOf = (kind: HeaderKind) => Array.from(columns.entries()).filter(([, k]) => k === kind).map(([c]) => c);
+    const categoryCol = colsOf('category')[0];
+    const numberCol = colsOf('number')[0];
+    const sexCol = colsOf('sex')[0];
+    const troopCols = colsOf('troop');
+    // Child groups: every first-name column starts a member; following columns up to the next first name belong to it.
+    const sortedCols = Array.from(columns.keys()).sort((a, b) => a - b);
+    const groups: Array<Partial<Record<'firstName' | 'lastName' | 'nickname' | 'memberTroop', number>>> = [];
+    sortedCols.forEach((c) => {
+      const kind = columns.get(c)!;
+      if (kind === 'firstName') {
+        groups.push({ firstName: c });
+      } else if ((kind === 'lastName' || kind === 'nickname' || kind === 'memberTroop') && groups.length > 0) {
+        const group = groups[groups.length - 1];
+        if (group[kind] === undefined) group[kind] = c;
+      }
+    });
+
+    let autoNumber = 0;
+    for (let r = headerRow + 1; r <= sheet.rowCount; r += 1) {
+      const row = sheet.getRow(r);
+      const members: PatrolProfileChildRow[] = groups
+        .map((g) => ({
+          firstName: g.firstName ? cellText(row.getCell(g.firstName)) : '',
+          lastName: g.lastName ? cellText(row.getCell(g.lastName)) : '',
+          nickname: g.nickname ? cellText(row.getCell(g.nickname)) : '',
+          troop: g.memberTroop ? cellText(row.getCell(g.memberTroop)) : '',
+        }))
+        .filter((m) => m.firstName || m.lastName || m.nickname);
+      if (members.length === 0) continue;
+
+      autoNumber += 1;
+      const rawNumber = numberCol ? Number(cellText(row.getCell(numberCol))) : NaN;
+      const troops: string[] = [];
+      [...troopCols.map((c) => cellText(row.getCell(c))), ...members.map((m) => m.troop)].forEach((t) => {
+        if (t && !troops.includes(t)) troops.push(t);
+      });
+      if (troops.length === 0) {
+        issues.push({ sheet: sheetName, row: r, message: 'Řádek přeskočen: chybí oddíl hlídky.' });
+        continue;
+      }
+      const singleTroop = troops.length === 1 ? troops[0] : '';
+      rows.push({
+        category: (categoryCol ? cellText(row.getCell(categoryCol)) : '') || sheetName,
+        number: Number.isFinite(rawNumber) && rawNumber > 0 ? rawNumber : autoNumber,
+        sex: sexCol ? normalizeSex(cellText(row.getCell(sexCol))) : '',
+        team_name: troops.join(' + '),
+        patrol_members: '',
+        troops,
+        members: members.map((m) => ({ ...m, troop: m.troop || singleTroop })),
+      });
+    }
+  });
+
+  if (rows.length === 0 && issues.length === 0) {
+    issues.push({ sheet: '', row: null, message: 'V souboru nejsou žádné vyplněné hlídky.' });
+  }
+  return { rows, issues };
+}
+
+/** Reads an uploaded patrol table (any layout with Jméno/Příjmení/Oddíl headers) and converts it to the name check workbook. */
+export async function convertPatrolTableToNameCheck(buffer: ArrayBuffer): Promise<NameCheckResult> {
+  const parsed = await parsePatrolTableLoosely(buffer);
   return buildNameCheckWorkbook(parsed.rows, parsed.issues);
 }
