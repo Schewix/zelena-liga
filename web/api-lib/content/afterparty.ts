@@ -3,6 +3,7 @@ import { resolveBody } from './articles/model.js';
 import {
 requireEditor
 } from './editorAuth.js';
+import { syncAfterpartyAchievements } from './afterpartyAchievements.js';
 import { getSupabaseAdminClient } from './supabaseAdmin.js';
 import { parseNonNegativeInt } from './validation.js';
 
@@ -138,7 +139,7 @@ export async function handleAdminAfterparty(req: any, res: any, segments: string
     try {
       const { data: existingOrder, error: orderLoadError } = await supabase
         .from('afterparty_orders')
-        .select('id')
+        .select('id, participant_id')
         .eq('id', id)
         .maybeSingle();
 
@@ -181,6 +182,7 @@ export async function handleAdminAfterparty(req: any, res: any, segments: string
         if (orderUpdateError) {
           throw orderUpdateError;
         }
+        await syncAfterpartyAchievements(supabase, [existingOrder.participant_id]);
         res.status(200).json({ ok: true });
         return;
       }
@@ -236,10 +238,22 @@ export async function handleAdminAfterparty(req: any, res: any, segments: string
         throw orderUpdateError;
       }
 
+      await syncAfterpartyAchievements(supabase, [existingOrder.participant_id]);
       res.status(200).json({ ok: true, total_points: totalPoints });
     } catch (error) {
       logger.error('[api/content/admin/afterparty] failed to review order', error);
       res.status(500).json({ error: 'Failed to review afterparty order.' });
+    }
+    return;
+  }
+
+  if (resource === 'achievements' && req.method === 'POST') {
+    try {
+      const result = await syncAfterpartyAchievements(supabase);
+      res.status(200).json({ ok: true, ...result });
+    } catch (error) {
+      logger.error('[api/content/admin/afterparty] failed to sync achievements', error);
+      res.status(500).json({ error: 'Failed to recompute afterparty achievements.' });
     }
     return;
   }

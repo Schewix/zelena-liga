@@ -15,6 +15,7 @@ export function AfterpartyAdminManager({ open, onClose }: { open: boolean; onClo
   const [loading, setLoading] = useState(false);
   const [savingOrderId, setSavingOrderId] = useState<string | null>(null);
   const [resetting, setResetting] = useState(false);
+  const [recomputing, setRecomputing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -176,6 +177,40 @@ export function AfterpartyAdminManager({ open, onClose }: { open: boolean; onClo
     }
   };
 
+  const handleRecomputeAchievements = async () => {
+    setRecomputing(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const response = await fetch('/api/content/admin/afterparty/achievements', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      const body = (await response.json().catch(() => null)) as
+        | { error?: string; participants?: number; awarded?: number; revoked?: number }
+        | null;
+      if (response.status === 401) {
+        setSessionState('unauthorized');
+        throw new Error('Přihlášení vypršelo.');
+      }
+      if (!response.ok) {
+        throw new Error(body?.error || 'Přepočet achievementů se nepodařil.');
+      }
+      setSuccess(
+        `Achievementy přepočítány: ${body?.participants ?? 0} lidí, nově uděleno ${body?.awarded ?? 0}, odebráno ${body?.revoked ?? 0}.`,
+      );
+    } catch (recomputeError) {
+      console.error('Failed to recompute afterparty achievements', recomputeError);
+      setError(
+        recomputeError instanceof Error && recomputeError.message
+          ? recomputeError.message
+          : 'Přepočet achievementů se nepodařil.',
+      );
+    } finally {
+      setRecomputing(false);
+    }
+  };
+
   const handleResetLeague = async () => {
     const confirmed = window.confirm(
       'Opravdu resetovat celou pivečko ligu? Smaže se pořadí, účastníci, účtenky i nahrané soubory.',
@@ -295,6 +330,14 @@ export function AfterpartyAdminManager({ open, onClose }: { open: boolean; onClo
               <div className="homepage-afterparty-admin-toolbar">
                 <button type="button" className="homepage-afterparty-inline-button" onClick={loadOrders} disabled={loading}>
                   {loading ? 'Načítám…' : 'Obnovit účtenky'}
+                </button>
+                <button
+                  type="button"
+                  className="homepage-afterparty-inline-button"
+                  onClick={handleRecomputeAchievements}
+                  disabled={recomputing}
+                >
+                  {recomputing ? 'Přepočítávám…' : 'Přepočítat achievementy'}
                 </button>
                 <button
                   type="button"

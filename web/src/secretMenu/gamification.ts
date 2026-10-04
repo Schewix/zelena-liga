@@ -5,7 +5,7 @@ import {
   MENU_ITEMS,
   type MenuCategory,
   type MenuItem,
-} from '../data/menuItems';
+} from '../data/menuItems.js';
 
 export const FIRST_TIME_ITEM_BONUS = 20;
 
@@ -442,6 +442,28 @@ export function addConsumedItem(
   };
 }
 
+export type ApprovedOrderForState = {
+  orderId: string;
+  at: string;
+  items: Array<{ drinkKey: string; quantity: number }>;
+};
+
+export function createStateFromApprovedOrders(orders: ApprovedOrderForState[]): SecretMenuState {
+  const consumedItems: ConsumedMenuItem[] = [];
+  orders.forEach((order) => {
+    order.items.forEach((item) => {
+      for (let index = 0; index < item.quantity; index += 1) {
+        consumedItems.push({
+          id: `${order.orderId}:${item.drinkKey}:${index}`,
+          itemId: item.drinkKey,
+          consumedAt: normalizeConsumedAt(order.at),
+        });
+      }
+    });
+  });
+  return { consumedItems };
+}
+
 export function removeConsumedItem(state: SecretMenuState, entryId: string): SecretMenuState {
   return {
     consumedItems: state.consumedItems.filter((entry) => entry.id !== entryId),
@@ -487,8 +509,8 @@ export function getUserLevel(pointsOrState: number | SecretMenuState) {
   );
 }
 
-export function getProgressToNextLevel(state: SecretMenuState): LevelProgress {
-  const points = getUserPoints(state);
+export function getProgressToNextLevel(pointsOrState: number | SecretMenuState): LevelProgress {
+  const points = typeof pointsOrState === 'number' ? pointsOrState : getUserPoints(pointsOrState);
   const currentLevel = getUserLevel(points);
   const currentIndex = SECRET_MENU_LEVELS.findIndex((level) => level.id === currentLevel.id);
   const nextLevel = currentIndex >= 0 ? SECRET_MENU_LEVELS[currentIndex + 1] ?? null : null;

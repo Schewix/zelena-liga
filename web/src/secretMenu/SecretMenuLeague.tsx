@@ -38,11 +38,13 @@ export default function SecretMenuLeague({
   onDraftChange,
   onDraftDiscard,
   onDraftSubmitted,
+  onOrdersChange,
 }: {
   draft: LeagueDraft;
   onDraftChange: (itemId: string, delta: number) => void;
   onDraftDiscard: () => void;
   onDraftSubmitted: () => void;
+  onOrdersChange: (orders: AfterpartyOrderRow[]) => void;
 }) {
   const [participant, setParticipant] = useState<AfterpartyParticipant | null>(null);
   const [profileForm, setProfileForm] = useState({ displayName: '', troopName: '' });
@@ -98,12 +100,16 @@ export default function SecretMenuLeague({
       )
       .eq('participant_id', participantId)
       .order('submitted_at', { ascending: false })
-      .limit(20);
+      .limit(200);
     if (ordersError) {
       throw ordersError;
     }
     setOrders((data ?? []) as AfterpartyOrderRow[]);
   }, []);
+
+  useEffect(() => {
+    onOrdersChange(orders);
+  }, [onOrdersChange, orders]);
 
   const loadOnlineState = useCallback(async () => {
     setLoading(true);
@@ -174,7 +180,24 @@ export default function SecretMenuLeague({
     setSuccess(null);
     try {
       const payload = { display_name: displayName, troop_name: troopName };
-      const result = participant
+      let existingParticipant: AfterpartyParticipant | null = null;
+      if (!participant) {
+        const escapedName = displayName.replace(/[\\%_]/g, (char) => `\\${char}`);
+        const { data: matches, error: lookupError } = await supabase
+          .from('afterparty_participants')
+          .select('id, display_name, troop_name')
+          .eq('troop_name', troopName)
+          .ilike('display_name', escapedName)
+          .order('created_at', { ascending: true })
+          .limit(1);
+        if (lookupError) {
+          throw lookupError;
+        }
+        existingParticipant = ((matches ?? [])[0] as AfterpartyParticipant | undefined) ?? null;
+      }
+      const result = existingParticipant
+        ? { data: existingParticipant, error: null }
+        : participant
         ? await supabase
             .from('afterparty_participants')
             .update(payload)
@@ -201,7 +224,7 @@ export default function SecretMenuLeague({
       } catch {
         // Profile still works for this session without localStorage.
       }
-      setSuccess('Profil je uložený.');
+      setSuccess(existingParticipant ? 'Profil jsme našli a obnovili.' : 'Profil je uložený.');
       await loadOrders(saved.id);
       await loadLeaderboards();
     } catch (saveError) {

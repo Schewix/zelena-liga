@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../auth/context';
 import {
   MENU_CATEGORY_LABELS,
@@ -11,11 +11,15 @@ import {
 import {
   addConsumedItem,
   createEmptySecretMenuState,
+  createStateFromApprovedOrders,
+  getProgressToNextLevel,
   getStatistics,
+  getUserLevel,
   normalizeSecretMenuState,
   removeConsumedItem,
   type SecretMenuState,
 } from './gamification';
+import type { AfterpartyOrderRow } from '../homepage/afterparty/model';
 import SecretMenuLeague, { getLeagueDraftSummary, type LeagueDraft } from './SecretMenuLeague';
 import './SecretMenuGame.css';
 
@@ -110,6 +114,7 @@ export default function SecretMenuGame({ open, onClose }: { open: boolean; onClo
   const [state, setState] = useState<SecretMenuState>(() => createEmptySecretMenuState());
   const [loadedStorageKey, setLoadedStorageKey] = useState<string | null>(null);
   const [mode, setMode] = useState<SecretMenuMode>('play');
+  const [leagueOrders, setLeagueOrders] = useState<AfterpartyOrderRow[]>([]);
   const [leagueDraft, setLeagueDraft] = useState<LeagueDraft>(() => loadLeagueDraft());
 
   const storageKey =
@@ -160,7 +165,44 @@ export default function SecretMenuGame({ open, onClose }: { open: boolean; onClo
     };
   }, [onClose, open]);
 
-  const statistics = useMemo(() => getStatistics(state), [state]);
+  const leagueState = useMemo(
+    () =>
+      createStateFromApprovedOrders(
+        leagueOrders
+          .filter((order) => order.status === 'approved')
+          .map((order) => ({
+            orderId: order.id,
+            at: order.reviewed_at ?? order.submitted_at,
+            items: (order.afterparty_order_items ?? []).map((item) => ({
+              drinkKey: item.drink_key,
+              quantity: item.approved_quantity,
+            })),
+          })),
+      ),
+    [leagueOrders],
+  );
+  const leagueApprovedPoints = useMemo(
+    () =>
+      leagueOrders
+        .filter((order) => order.status === 'approved')
+        .reduce((sum, order) => sum + order.total_points, 0),
+    [leagueOrders],
+  );
+  const statistics = useMemo(() => {
+    const base = getStatistics(mode === 'league' ? leagueState : state);
+    if (mode !== 'league') {
+      return base;
+    }
+    const totalPoints =
+      leagueApprovedPoints + base.unlockedAchievements.reduce((sum, achievement) => sum + achievement.bonusPoints, 0);
+    return {
+      ...base,
+      totalPoints,
+      currentLevel: getUserLevel(totalPoints),
+      progressToNextLevel: getProgressToNextLevel(totalPoints),
+    };
+  }, [leagueApprovedPoints, leagueState, mode, state]);
+  const handleLeagueOrdersChange = useCallback((orders: AfterpartyOrderRow[]) => setLeagueOrders(orders), []);
   const consumedCounts = useMemo(() => {
     return state.consumedItems.reduce<Record<string, number>>((acc, entry) => {
       acc[entry.itemId] = (acc[entry.itemId] ?? 0) + 1;
@@ -208,20 +250,22 @@ export default function SecretMenuGame({ open, onClose }: { open: boolean; onClo
   };
 
   const handleAddItem = (itemId: string) => {
-    setState((current) => addConsumedItem(current, itemId));
     if (mode === 'league') {
       adjustDraft(itemId, 1);
+      return;
     }
+    setState((current) => addConsumedItem(current, itemId));
   };
 
   const handleRemoveItem = (itemId: string) => {
     if (mode === 'league' && !(leagueDraft[itemId] > 0)) {
       return;
     }
-    setState((current) => removeLatestEntries(current, itemId, 1));
     if (mode === 'league') {
       adjustDraft(itemId, -1);
+      return;
     }
+    setState((current) => removeLatestEntries(current, itemId, 1));
   };
 
   const handleDraftChange = (itemId: string, delta: number) => {
@@ -233,12 +277,6 @@ export default function SecretMenuGame({ open, onClose }: { open: boolean; onClo
   };
 
   const handleDraftDiscard = () => {
-    setState((current) =>
-      Object.entries(leagueDraft).reduce(
-        (next, [itemId, quantity]) => removeLatestEntries(next, itemId, quantity),
-        current,
-      ),
-    );
     setLeagueDraft({});
   };
 
@@ -304,6 +342,7 @@ export default function SecretMenuGame({ open, onClose }: { open: boolean; onClo
             onDraftChange={handleDraftChange}
             onDraftDiscard={handleDraftDiscard}
             onDraftSubmitted={() => setLeagueDraft({})}
+            onOrdersChange={handleLeagueOrdersChange}
           />
         ) : null}
 
