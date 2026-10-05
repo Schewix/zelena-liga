@@ -9,15 +9,13 @@ export function SponsorsPage() {
         <h1 id="sponsors-heading">Sponzoři</h1>
         <p className="homepage-lead">Podpořte děti.</p>
         <div className="homepage-card sponsors-content">
+          <p>Jen stěží bychom mohli fungovat bez podpory našich přátel, partnerů a sponzorů.</p>
           <p>
-            Za naší činností stojí pomoc přátel, partnerů a sponzorů. Dotace, granty, finanční
-            i materiální dary a především čas dobrovolníků nám umožňují připravovat aktivity
-            pro děti. Každá taková podpora přispívá k jejich rozvoji, zážitkům a budoucnosti.
+            Díky dotacím, grantům, sponzorským darům, podpoře materiální a zejména práci
+            dobrovolníků zajišťujeme veškerou naši činnost, a že jí není málo. Pomoc směřuje
+            vždy dětem, do jejich rozvoje a zábavy, do naší budoucnosti.
           </p>
-          <p>
-            Na financování činnosti se prostřednictvím dotací podílejí Jihomoravský kraj,
-            statutární město Brno a Ministerstvo školství, mládeže a tělovýchovy (MŠMT).
-          </p>
+          <p>Činnost je spolufinancována z dotací Jihomoravského kraje, Statutárního města Brna a MŠMT.</p>
           <div className="sponsors-logos" aria-label="Loga podporovatelů">
             <a
               className="sponsors-logo"
@@ -37,11 +35,19 @@ export function SponsorsPage() {
             </a>
           </div>
           <p>
-            Způsob pomoci si můžete vybrat sami: finanční příspěvek, materiální dar nebo
-            doporučení Pionýra na základě vlastních dobrých zkušeností. Podrobnosti vám rádi
-            sdělíme na <a href="mailto:kancelar@jmpionyr.cz">kancelar@jmpionyr.cz</a>.
+            Sami můžete rozhodnout, koho a jak podpoříte – ať už finančně, materiálně nebo
+            přenesením svých dobrých zkušeností s Pionýrem dále mezi své známé. Více informací na
+            emailu <a href="mailto:kancelar@jmpionyr.cz">kancelar@jmpionyr.cz</a>.
           </p>
-          <p>Všem našim podporovatelům patří velké poděkování.</p>
+          <p>A děkujeme všem, kteří nám pomáhají.</p>
+          <p>
+            V současné době máme uzavřené Memorandum o spolupráci s Jihomoravským krajem.
+          </p>
+          <p>
+            <a href="/documents/memorandum-o-spolupraci.pdf" target="_blank" rel="noopener noreferrer">
+              Memorandum o spolupráci (PDF)
+            </a>
+          </p>
         </div>
       </main>
     </SiteShell>
