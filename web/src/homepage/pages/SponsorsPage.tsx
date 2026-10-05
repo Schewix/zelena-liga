@@ -44,8 +44,8 @@ export function SponsorsPage() {
             V současné době máme uzavřené Memorandum o spolupráci s Jihomoravským krajem.
           </p>
           <p>
-            <a href="/documents/memorandum-o-spolupraci.pdf" target="_blank" rel="noopener noreferrer">
-              Memorandum o spolupráci (PDF)
+            <a href="/documents/memorandum-o-spolupraci-2024.pdf" target="_blank" rel="noopener noreferrer">
+              Memorandum o spolupráci 2024 (PDF)
             </a>
           </p>
         </div>
