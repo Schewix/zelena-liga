@@ -52,6 +52,7 @@ import { SETUP_SELECTED_EVENT_STORAGE_KEY } from './setup/config';
 import { DEFAULT_JUDGE_TASK_PRESET,JUDGE_TASK_PRESETS,createBaseCategoryRecord,createDefaultCategoryToggleState,createDefaultOrderTextState,createDefaultPatrolCounts,createDefaultPatrolStarts,createDefaultSeparatorState,createDefaultSetupEventScoringConfig,getConfiguredStationBaseCategories,getJudgeTasksForPreset,normalizeSetupEventScoringConfig,normalizeSetupStationOrder,normalizeStationSplitCategories,toJudgeTaskPresetKey } from './setup/model';
 import { DEFAULT_SETUP_TROOP_OPTIONS,compareTroopSheetOrder,normalizeTroopList,normalizeTroopName,parseTroopNumber,pickCanonicalTroopName,splitMixedTroopNames } from './setup/troops';
 import { DEFAULT_TARGET_ANSWER_OPTION_COUNT,formatMinutesAsTimeInput,parseTimeInputToMinutes,toPositiveInt,toTargetAnswerOptionCount } from './setup/validation';
+import { formatNumberRanges } from './setup/patrolNumbers';
 import { normalizeText } from './shared/text';
 import { AnswersFormState,AnswersSummary,AuthenticatedState,CategoryToggleState,DisqualifyPatrol,EventState,JudgeTaskPresetKey,MissingDialogState,PatrolCountsState,PatrolStartsState,PatrolSummary,SelectedSetupAssignmentSummary,SetupAssignmentRow,SetupEventRow,SetupEventScoringConfig,SetupJudgeRow,SetupStationOrderPayload,SetupStationOrderRow,SetupStationRow,StationPassageRow } from './types';
 import { TargetAnswersSection } from './answers/TargetAnswersSection';
@@ -177,6 +178,8 @@ export function AdminDashboard({
   const [judgeTaskPreset, setJudgeTaskPreset] = useState<JudgeTaskPresetKey>(DEFAULT_JUDGE_TASK_PRESET);
   const [stationClosingId, setStationClosingId] = useState<string | null>(null);
 
+  const [existingPatrolNumbers, setExistingPatrolNumbers] = useState<Record<string, number[]>>({});
+  const [patrolNumbersVersion, setPatrolNumbersVersion] = useState(0);
   const [patrolCounts, setPatrolCounts] = useState<Record<CategoryKey, number>>(() => createBaseCategoryRecord(() => 0));
   const [patrolStarts, setPatrolStarts] = useState<Record<CategoryKey, number>>(() => createBaseCategoryRecord(() => 1));
 
@@ -688,6 +691,7 @@ export function AdminDashboard({
         }
       });
 
+      setPatrolNumbersVersion((version) => version + 1);
       setSetupEvents(events);
       setSetupStations(stations);
       setSetupJudges(judges);
@@ -713,6 +717,37 @@ export function AdminDashboard({
       setSetupLoading(false);
     }
   }, [accessToken, eventId]);
+
+  useEffect(() => {
+    if (!API_BASE_URL || !accessToken || !selectedSetupEventId) {
+      setExistingPatrolNumbers({});
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/admin/event-state?patrolNumbers=1&event_id=${encodeURIComponent(selectedSetupEventId)}`,
+          { headers: { Authorization: `Bearer ${accessToken}` } },
+        );
+        if (!response.ok) {
+          throw new Error(`Patrol numbers failed (${response.status})`);
+        }
+        const body = (await response.json()) as { numbers?: Record<string, number[]> };
+        if (!cancelled) {
+          setExistingPatrolNumbers(body.numbers ?? {});
+        }
+      } catch (error) {
+        console.error('Failed to load existing patrol numbers', error);
+        if (!cancelled) {
+          setExistingPatrolNumbers({});
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken, selectedSetupEventId, patrolNumbersVersion]);
 
   const selectedSetupStations = useMemo(
     () =>
@@ -2289,6 +2324,11 @@ setupSaving={setupSaving}
                       }
                     />
                   </label>
+                  <p className="admin-card-subtitle admin-setup-patrol-existing">
+                    {(existingPatrolNumbers[category]?.length ?? 0) > 0
+                      ? `V systému: ${existingPatrolNumbers[category].length} hlídek, čísla ${formatNumberRanges(existingPatrolNumbers[category])}`
+                      : 'V systému zatím žádné hlídky.'}
+                  </p>
                 </div>
               ))}
             </div>

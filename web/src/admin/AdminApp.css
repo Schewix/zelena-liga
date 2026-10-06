@@ -815,6 +815,11 @@
   white-space: nowrap;
 }
 
+.admin-setup-patrol-existing {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
 .admin-setup-patrol-row {
   display: grid;
   grid-template-columns: 72px 1fr 1fr;

@@ -1,6 +1,7 @@
 import { handleSetupAction } from '../../api-lib/admin/eventState/actions.js';
 import { requireCalcSession } from '../../api-lib/admin/eventState/auth.js';
 import { loadSetupData } from '../../api-lib/admin/eventState/loadSetupData.js';
+import { loadPatrolNumbers } from '../../api-lib/admin/eventState/loadPatrolNumbers.js';
 import { loadStationOverview } from '../../api-lib/admin/eventState/loadStationOverview.js';
 import { respond } from '../../api-lib/admin/eventState/respond.js';
 import { buildDefaultLockAtIso } from '../../api-lib/admin/eventState/time.js';
@@ -34,6 +35,11 @@ async function handler(req: any, res: any) {
   if (req.method === 'GET' && (req.query?.stationOverview === '1' || req.query?.stationOverview === 'true')) {
     const requestedEventId = normalizeText(req.query?.event_id) || eventId;
     return loadStationOverview(supabaseAdmin, requestedEventId, res);
+  }
+
+  if (req.method === 'GET' && (req.query?.patrolNumbers === '1' || req.query?.patrolNumbers === 'true')) {
+    const requestedEventId = normalizeText(req.query?.event_id) || eventId;
+    return loadPatrolNumbers(supabaseAdmin, requestedEventId, res);
   }
 
   if (req.method === 'GET' && setupMode) {

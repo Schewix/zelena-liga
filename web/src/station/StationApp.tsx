@@ -118,6 +118,8 @@ export function StationApp({
   const [calcTroopSelectDraft, setCalcTroopSelectDraft] = useState('');
   const [calcCustomTroopDraft, setCalcCustomTroopDraft] = useState('');
   const [calcMemberRows, setCalcMemberRows] = useState<PatrolProfileChildRow[]>(() => createEmptyPatrolProfileRows());
+  const [calcCategoryDraft, setCalcCategoryDraft] = useState('');
+  const [calcSexDraft, setCalcSexDraft] = useState('');
   const [savingPatrolProfile, setSavingPatrolProfile] = useState(false);
   const [patrolProfileMessage, setPatrolProfileMessage] = useState<string | null>(null);
   const [patrolProfileError, setPatrolProfileError] = useState<string | null>(null);
@@ -1454,6 +1456,8 @@ export function StationApp({
       setCalcPatrolMembersDraft(initialMembers);
       setCalcSelectedTroops(parsedProfile.troops);
       setCalcMemberRows(parsedProfile.rows);
+      setCalcCategoryDraft(data.category ?? '');
+      setCalcSexDraft(data.sex ?? '');
       setCalcCustomTroopDraft('');
       setCalcTroopSelectDraft(parsedProfile.troops[0] ?? '');
       setPatrolProfileMessage(null);
@@ -1651,7 +1655,9 @@ export function StationApp({
     const nextTeamName = calcProfileDraft.teamName;
     const nextMembers = calcProfileDraft.membersText;
     const inputPatrolCode = normalisePatrolCode(activePatrol.input_patrol_code ?? '');
-    const shouldCleanupSharedNumber = hasExplicitSexPatrolCode(inputPatrolCode);
+    const categoryChanged = Boolean(calcCategoryDraft) && calcCategoryDraft !== activePatrol.category;
+    const sexChanged = Boolean(calcSexDraft) && calcSexDraft !== activePatrol.sex;
+    const shouldCleanupSharedNumber = hasExplicitSexPatrolCode(inputPatrolCode) && !categoryChanged && !sexChanged;
 
     setSavingPatrolProfile(true);
     setPatrolProfileError(null);
@@ -1669,6 +1675,8 @@ export function StationApp({
           patrol_id: activePatrol.id,
           team_name: nextTeamName,
           patrol_members: nextMembers,
+          category: categoryChanged ? calcCategoryDraft : undefined,
+          sex: sexChanged ? calcSexDraft : undefined,
           patrol_code_input: inputPatrolCode,
           cleanup_shared_number: shouldCleanupSharedNumber,
         }),
@@ -1679,7 +1687,16 @@ export function StationApp({
         throw new Error(body?.error || 'Uložení profilu hlídky se nepodařilo.');
       }
 
-      const updatedPatrol = body?.patrol as { team_name?: string | null; patrol_members?: string | null } | undefined;
+      const updatedPatrol = body?.patrol as {
+        team_name?: string | null;
+        patrol_members?: string | null;
+        category?: string | null;
+        sex?: string | null;
+        patrol_code?: string | null;
+      } | undefined;
+      const updatedCategory = typeof updatedPatrol?.category === 'string' ? updatedPatrol.category : activePatrol.category;
+      const updatedSex = typeof updatedPatrol?.sex === 'string' ? updatedPatrol.sex : activePatrol.sex;
+      const updatedCode = typeof updatedPatrol?.patrol_code === 'string' ? updatedPatrol.patrol_code : activePatrol.patrol_code;
       const updatedTeamName = typeof updatedPatrol?.team_name === 'string' && updatedPatrol.team_name.trim().length > 0
         ? updatedPatrol.team_name.trim()
         : nextTeamName;
@@ -1692,17 +1709,33 @@ export function StationApp({
 
       setActivePatrol((current) =>
         current && current.id === activePatrol.id
-          ? { ...current, team_name: updatedTeamName, patrol_members: updatedMembers }
+          ? {
+              ...current,
+              team_name: updatedTeamName,
+              patrol_members: updatedMembers,
+              category: updatedCategory,
+              sex: updatedSex,
+              patrol_code: updatedCode,
+            }
           : current,
       );
       setScannerPatrol((current) =>
         current && current.id === activePatrol.id
-          ? { ...current, team_name: updatedTeamName, patrol_members: updatedMembers }
+          ? {
+              ...current,
+              team_name: updatedTeamName,
+              patrol_members: updatedMembers,
+              category: updatedCategory,
+              sex: updatedSex,
+              patrol_code: updatedCode,
+            }
           : current,
       );
       const parsed = parsePatrolProfileDraft(updatedTeamName, updatedMembers ?? '');
       setCalcSelectedTroops(parsed.troops);
       setCalcMemberRows(parsed.rows);
+      setCalcCategoryDraft(updatedCategory);
+      setCalcSexDraft(updatedSex);
       setCalcCustomTroopDraft('');
       setCalcTroopSelectDraft(parsed.troops[0] ?? '');
       setPatrolProfileMessage(
@@ -1721,6 +1754,8 @@ export function StationApp({
   }, [
     activePatrol,
     auth.tokens.accessToken,
+    calcCategoryDraft,
+    calcSexDraft,
     calcProfileDraft.membersText,
     calcProfileDraft.rows,
     calcProfileDraft.teamName,
@@ -4332,6 +4367,10 @@ calcSelectedTroops={calcSelectedTroops}
 handleRemoveTroop={handleRemoveTroop}
 calcMemberRows={calcMemberRows}
 calcProfileDraft={calcProfileDraft}
+calcCategoryDraft={calcCategoryDraft}
+setCalcCategoryDraft={setCalcCategoryDraft}
+calcSexDraft={calcSexDraft}
+setCalcSexDraft={setCalcSexDraft}
 handleProfileRowChange={handleProfileRowChange}
 patrolProfileError={patrolProfileError}
 patrolProfileMessage={patrolProfileMessage}

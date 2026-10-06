@@ -19,12 +19,16 @@ calcSelectedTroops: string[];
 handleRemoveTroop: (troopToRemove: string) => void;
 calcMemberRows: PatrolProfileChildRow[];
 calcProfileDraft: { troops: string[]; rows: { firstName: string; lastName: string; nickname: string; troop: string; }[]; teamName: string; membersText: string | null; requiresTroopPerChild: boolean; };
+calcCategoryDraft: string;
+setCalcCategoryDraft: (value: string) => void;
+calcSexDraft: string;
+setCalcSexDraft: (value: string) => void;
 handleProfileRowChange: (rowIndex: number, field: keyof PatrolProfileChildRow, value: string) => void;
 patrolProfileError: string | null;
 patrolProfileMessage: string | null;
 };
 
-export function PatrolProfileCard({ calcProfileRef, isCalcProfileOnlyMode, handleOpenFullCalcForm, handleSavePatrolProfile, savingPatrolProfile, calcTroopSelectDraft, setCalcTroopSelectDraft, clearPatrolProfileFeedback, calcTroopOptions, handleAddSelectedTroop, calcCustomTroopDraft, setCalcCustomTroopDraft, handleAddCustomTroop, calcSelectedTroops, handleRemoveTroop, calcMemberRows, calcProfileDraft, handleProfileRowChange, patrolProfileError, patrolProfileMessage }: PatrolProfileCardProps) {
+export function PatrolProfileCard({ calcProfileRef, isCalcProfileOnlyMode, handleOpenFullCalcForm, handleSavePatrolProfile, savingPatrolProfile, calcTroopSelectDraft, setCalcTroopSelectDraft, clearPatrolProfileFeedback, calcTroopOptions, handleAddSelectedTroop, calcCustomTroopDraft, setCalcCustomTroopDraft, handleAddCustomTroop, calcSelectedTroops, handleRemoveTroop, calcMemberRows, calcProfileDraft, calcCategoryDraft, setCalcCategoryDraft, calcSexDraft, setCalcSexDraft, handleProfileRowChange, patrolProfileError, patrolProfileMessage }: PatrolProfileCardProps) {
 return (<section ref={calcProfileRef} className="card calc-profile-card">
               <header className="card-header">
                 <div>
@@ -52,6 +56,42 @@ return (<section ref={calcProfileRef} className="card calc-profile-card">
                 </div>
               </header>
               <div className="calc-patrol-profile">
+                <div className="calc-profile-troops">
+                  <div className="calc-time-input">
+                    <label htmlFor="calc-patrol-category">Kategorie hlídky</label>
+                    <div className="calc-profile-inline">
+                      <select
+                        id="calc-patrol-category"
+                        value={calcCategoryDraft}
+                        onChange={(event) => {
+                          setCalcCategoryDraft(event.target.value);
+                          clearPatrolProfileFeedback();
+                        }}
+                      >
+                        {['N', 'M', 'S', 'R'].map((category) => (
+                          <option key={category} value={category}>
+                            {category}
+                          </option>
+                        ))}
+                      </select>
+                      <select
+                        id="calc-patrol-sex"
+                        aria-label="Pohlaví hlídky"
+                        value={calcSexDraft}
+                        onChange={(event) => {
+                          setCalcSexDraft(event.target.value);
+                          clearPatrolProfileFeedback();
+                        }}
+                      >
+                        {['H', 'D'].map((sex) => (
+                          <option key={sex} value={sex}>
+                            {sex}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
                 <div className="calc-profile-troops">
                   <div className="calc-time-input">
                     <label htmlFor="calc-troop-select">Oddíl z nabídky</label>

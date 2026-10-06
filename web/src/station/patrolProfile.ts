@@ -70,7 +70,7 @@ export function parsePatrolProfileRows(value: string | null | undefined, fallbac
     .map((line) => line.trim())
     .filter(Boolean);
 
-  const parsedRows = lines.slice(0, PATROL_PROFILE_CHILD_ROW_COUNT).map((line) => {
+  const parsedRows = lines.map((line) => {
     let working = line;
     let troop = '';
     const troopMatch = working.match(/\{oddil:([^}]+)\}\s*$/i);
@@ -166,7 +166,7 @@ export function validatePatrolProfileDraft(
     const lastName = normalizeProfileText(row.lastName);
     const nickname = normalizeProfileText(row.nickname);
     const troop = normalizeTroopName(row.troop);
-    const hasAny = Boolean(firstName || lastName || nickname || troop);
+    const hasAny = Boolean(firstName || lastName || nickname);
     if (!hasAny) {
       continue;
     }
