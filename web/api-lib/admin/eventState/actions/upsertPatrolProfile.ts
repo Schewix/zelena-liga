@@ -1,3 +1,4 @@
+import { MAX_PATROLS_PER_CATEGORY } from '../constants.js';
 import { buildCounterpartPatrolCode,buildPatrolCodeLookupVariants,mapPatrolCategoryKey,parsePatrolCategoryNumber,parseSexedPatrolCode,resolvePatrolByCode } from '../patrols.js';
 import { respond } from '../respond.js';
 import { hasAtLeastOneFullName,normalizeAllowedCategories,normalizeAllowedTasks,normalizeEmail,normalizePatrolMembers,normalizeStationCode,normalizeStationOrderPayload,normalizeStationSplitCategories,normalizeText,parseIsoOrNull,toNonNegativeInt } from '../validation.js';
@@ -12,6 +13,13 @@ export async function upsertPatrolProfile(supabaseAdmin: any, currentEventId: st
     const patrolMembers = normalizePatrolMembers(payload.patrol_members);
     const requestedCategory = normalizeText(payload.category).toUpperCase();
     const requestedSex = normalizeText(payload.sex).toUpperCase();
+    const rawNumber = payload.number;
+    const requestedNumber = rawNumber === undefined || rawNumber === null || rawNumber === ''
+      ? null
+      : Number(rawNumber);
+    if (requestedNumber !== null && (!Number.isInteger(requestedNumber) || requestedNumber < 1 || requestedNumber > MAX_PATROLS_PER_CATEGORY)) {
+      return res.status(400).json({ error: `Invalid patrol number (expected 1–${MAX_PATROLS_PER_CATEGORY}).` });
+    }
     if (requestedCategory && !/^[NMSR]$/.test(requestedCategory)) {
       return res.status(400).json({ error: 'Invalid category (expected N, M, S or R).' });
     }
@@ -55,7 +63,7 @@ export async function upsertPatrolProfile(supabaseAdmin: any, currentEventId: st
       patrol_members: patrolMembers,
     };
 
-    if (requestedCategory || requestedSex) {
+    if (requestedCategory || requestedSex || requestedNumber !== null) {
       const { data: currentPatrol, error: currentError } = await supabaseAdmin
         .from('patrols')
         .select('id, patrol_code, category, sex')
@@ -71,32 +79,49 @@ export async function upsertPatrolProfile(supabaseAdmin: any, currentEventId: st
 
       const nextCategory = requestedCategory || String(currentPatrol.category ?? '');
       const nextSex = requestedSex || String(currentPatrol.sex ?? '');
-      if (nextCategory !== currentPatrol.category || nextSex !== currentPatrol.sex) {
-        const currentCode = normalizeText(currentPatrol.patrol_code).toUpperCase();
-        const numberMatch = currentCode.match(/^[NMSR][HD]?[- ]?(\d{1,3})$/);
+      const currentCode = normalizeText(currentPatrol.patrol_code).toUpperCase();
+      const numberMatch = currentCode.match(/^[NMSR][HD]?[- ]?(\d{1,3})$/);
+      const currentNumber = numberMatch ? Number.parseInt(numberMatch[1], 10) : null;
+      const nextNumber = requestedNumber ?? currentNumber;
+      const changed = nextCategory !== currentPatrol.category
+        || nextSex !== currentPatrol.sex
+        || nextNumber !== currentNumber;
+
+      if (changed) {
         updateFields.category = nextCategory;
         updateFields.sex = nextSex;
-        if (numberMatch) {
-          const number = Number.parseInt(numberMatch[1], 10);
+        if (nextNumber !== null) {
           const hasSexPart = /^[NMSR][HD]/.test(currentCode);
-          const nextCode = hasSexPart ? `${nextCategory}${nextSex}-${number}` : `${nextCategory}-${number}`;
+          const nextCode = hasSexPart ? `${nextCategory}${nextSex}-${nextNumber}` : `${nextCategory}-${nextNumber}`;
+          const { data: eventPatrols, error: clashError } = await supabaseAdmin
+            .from('patrols')
+            .select('id, patrol_code, category, active')
+            .eq('event_id', targetEventId)
+            .neq('id', resolvedPatrolId);
+          if (clashError) {
+            return respond(res, 500, 'Failed to check patrol numbers', clashError.message);
+          }
+          const clash = ((eventPatrols ?? []) as Array<{
+            patrol_code?: string | null;
+            category?: string | null;
+            active?: boolean | null;
+          }>).find((row) => {
+            const rowCode = normalizeText(row.patrol_code).toUpperCase();
+            if (rowCode === nextCode) {
+              return true;
+            }
+            if (row.active === false) {
+              return false;
+            }
+            const parsed = parsePatrolCategoryNumber(rowCode, row.category);
+            return Boolean(parsed && parsed.category === nextCategory && parsed.number === nextNumber);
+          });
+          if (clash) {
+            return res.status(409).json({
+              error: `Číslo ${nextNumber} v kategorii ${nextCategory} už má jiná hlídka (${normalizeText(clash.patrol_code)}). Zvol jiné číslo.`,
+            });
+          }
           if (nextCode !== currentCode) {
-            const { data: clashes, error: clashError } = await supabaseAdmin
-              .from('patrols')
-              .select('id, patrol_code')
-              .eq('event_id', targetEventId)
-              .in('patrol_code', buildPatrolCodeLookupVariants(nextCode).filter((variant) => (
-                hasSexPart ? /^[NMSR][HD]-/.test(variant) : /^[NMSR]-/.test(variant)
-              )))
-              .neq('id', resolvedPatrolId);
-            if (clashError) {
-              return respond(res, 500, 'Failed to check patrol code', clashError.message);
-            }
-            if ((clashes ?? []).length > 0) {
-              return res.status(409).json({
-                error: `Hlídka ${nextCode} už existuje. Zvol jinou kategorii nebo nejdřív změň číslo.`,
-              });
-            }
             updateFields.patrol_code = nextCode;
           }
         }

@@ -23,12 +23,14 @@ calcCategoryDraft: string;
 setCalcCategoryDraft: (value: string) => void;
 calcSexDraft: string;
 setCalcSexDraft: (value: string) => void;
+calcNumberDraft: string;
+setCalcNumberDraft: (value: string) => void;
 handleProfileRowChange: (rowIndex: number, field: keyof PatrolProfileChildRow, value: string) => void;
 patrolProfileError: string | null;
 patrolProfileMessage: string | null;
 };
 
-export function PatrolProfileCard({ calcProfileRef, isCalcProfileOnlyMode, handleOpenFullCalcForm, handleSavePatrolProfile, savingPatrolProfile, calcTroopSelectDraft, setCalcTroopSelectDraft, clearPatrolProfileFeedback, calcTroopOptions, handleAddSelectedTroop, calcCustomTroopDraft, setCalcCustomTroopDraft, handleAddCustomTroop, calcSelectedTroops, handleRemoveTroop, calcMemberRows, calcProfileDraft, calcCategoryDraft, setCalcCategoryDraft, calcSexDraft, setCalcSexDraft, handleProfileRowChange, patrolProfileError, patrolProfileMessage }: PatrolProfileCardProps) {
+export function PatrolProfileCard({ calcProfileRef, isCalcProfileOnlyMode, handleOpenFullCalcForm, handleSavePatrolProfile, savingPatrolProfile, calcTroopSelectDraft, setCalcTroopSelectDraft, clearPatrolProfileFeedback, calcTroopOptions, handleAddSelectedTroop, calcCustomTroopDraft, setCalcCustomTroopDraft, handleAddCustomTroop, calcSelectedTroops, handleRemoveTroop, calcMemberRows, calcProfileDraft, calcCategoryDraft, setCalcCategoryDraft, calcSexDraft, setCalcSexDraft, calcNumberDraft, setCalcNumberDraft, handleProfileRowChange, patrolProfileError, patrolProfileMessage }: PatrolProfileCardProps) {
 return (<section ref={calcProfileRef} className="card calc-profile-card">
               <header className="card-header">
                 <div>
@@ -58,7 +60,7 @@ return (<section ref={calcProfileRef} className="card calc-profile-card">
               <div className="calc-patrol-profile">
                 <div className="calc-profile-troops">
                   <div className="calc-time-input">
-                    <label htmlFor="calc-patrol-category">Kategorie hlídky</label>
+                    <label htmlFor="calc-patrol-category">Kategorie a číslo hlídky</label>
                     <div className="calc-profile-inline">
                       <select
                         id="calc-patrol-category"
@@ -89,6 +91,19 @@ return (<section ref={calcProfileRef} className="card calc-profile-card">
                           </option>
                         ))}
                       </select>
+                      <input
+                        id="calc-patrol-number"
+                        type="number"
+                        inputMode="numeric"
+                        min={1}
+                        max={300}
+                        aria-label="Číslo hlídky"
+                        value={calcNumberDraft}
+                        onChange={(event) => {
+                          setCalcNumberDraft(event.target.value);
+                          clearPatrolProfileFeedback();
+                        }}
+                      />
                     </div>
                   </div>
                 </div>
