@@ -4,6 +4,7 @@ deleteCommunity,
 fetchCommunity,
 LOAN_KIND_LABELS,
 submitCommunity,
+updateCommunity,
 type LoanKind,
 type LoanOffer,
 type LodgingTip,
@@ -48,12 +49,14 @@ function ContactLine({ name, contact }: { name: string; contact: string }) {
 
 function LodgingForm({
   accessToken,
+  initial,
   picked,
   onPick,
   onDone,
   onCancel,
 }: {
   accessToken: string;
+  initial?: LodgingTip;
   picked: { lat: number; lng: number } | null;
   onPick: (point: { lat: number; lng: number }) => void;
   onDone: () => void;
@@ -61,10 +64,10 @@ function LodgingForm({
 }) {
   const [status, setStatus] = useState<Status>(null);
   const [saving, setSaving] = useState(false);
-  const [address, setAddress] = useState('');
+  const [address, setAddress] = useState(initial?.place ?? '');
   const [searching, setSearching] = useState(false);
   // Adresu doplňujeme z polohy jen tehdy, když ji vedoucí nezadal sám.
-  const pickedByAddress = useRef(false);
+  const pickedByAddress = useRef(Boolean(initial));
 
   useEffect(() => {
     if (!picked) return undefined;
@@ -116,7 +119,9 @@ function LodgingForm({
     body.lat = picked.lat;
     body.lng = picked.lng;
     setSaving(true);
-    const result = await submitCommunity('lodging', body, accessToken);
+    const result = initial
+      ? await updateCommunity('lodging', initial.id, body, accessToken)
+      : await submitCommunity('lodging', body, accessToken);
     setSaving(false);
     if (result.ok) {
       onDone();
@@ -134,7 +139,7 @@ function LodgingForm({
       </p>
       <label>
         <span>Název ubytování *</span>
-        <input name="name" required maxLength={160} />
+        <input name="name" required maxLength={160} defaultValue={initial?.name} />
       </label>
       <div className="community-locate">
         <label>
@@ -158,16 +163,16 @@ function LodgingForm({
       </div>
       <label>
         <span>Odkaz na web</span>
-        <input name="url" maxLength={300} placeholder="https://" />
+        <input name="url" maxLength={300} placeholder="https://" defaultValue={initial?.url ?? ''} />
       </label>
       <div className="community-form-row">
         <label>
           <span>Kolik nás tam bylo</span>
-          <input name="groupSize" type="number" min={1} max={500} inputMode="numeric" />
+          <input name="groupSize" type="number" min={1} max={500} inputMode="numeric" defaultValue={initial?.groupSize ?? ''} />
         </label>
         <label>
           <span>Hodnocení</span>
-          <select name="rating" defaultValue="">
+          <select name="rating" defaultValue={initial?.rating ?? ''}>
             <option value="">Bez hodnocení</option>
             {[5, 4, 3, 2, 1].map((value) => (
               <option key={value} value={value}>
@@ -179,27 +184,27 @@ function LodgingForm({
       </div>
       <label>
         <span>Jaká byla komunikace</span>
-        <textarea name="communication" rows={2} maxLength={1000} />
+        <textarea name="communication" rows={2} maxLength={1000} defaultValue={initial?.communication ?? ''} />
       </label>
       <label>
         <span>Slovní hodnocení</span>
-        <textarea name="review" rows={3} maxLength={2000} />
+        <textarea name="review" rows={3} maxLength={2000} defaultValue={initial?.review ?? ''} />
       </label>
       <div className="community-form-row">
         <label>
           <span>Jméno vedoucího *</span>
-          <input name="leaderName" required maxLength={120} autoComplete="name" />
+          <input name="leaderName" required maxLength={120} autoComplete="name" defaultValue={initial?.leaderName} />
         </label>
         <label>
           <span>Kontakt (telefon nebo e-mail) *</span>
-          <input name="leaderContact" required maxLength={160} autoComplete="email" />
+          <input name="leaderContact" required maxLength={160} autoComplete="email" defaultValue={initial?.leaderContact} />
         </label>
       </div>
       <input name="company" className="community-honeypot" tabIndex={-1} autoComplete="off" aria-hidden="true" />
       {status ? <p className={`community-status community-status--${status.kind}`}>{status.text}</p> : null}
       <div className="community-form-actions">
         <button type="submit" className="homepage-cta primary" disabled={saving}>
-          {saving ? 'Ukládám…' : 'Přidat tip'}
+          {saving ? 'Ukládám…' : initial ? 'Uložit změny' : 'Přidat tip'}
         </button>
         <button type="button" className="homepage-cta secondary" onClick={onCancel}>
           Zrušit
@@ -209,7 +214,17 @@ function LodgingForm({
   );
 }
 
-function LoanForm({ accessToken, onDone, onCancel }: { accessToken: string; onDone: () => void; onCancel: () => void }) {
+function LoanForm({
+  accessToken,
+  initial,
+  onDone,
+  onCancel,
+}: {
+  accessToken: string;
+  initial?: LoanOffer;
+  onDone: () => void;
+  onCancel: () => void;
+}) {
   const [status, setStatus] = useState<Status>(null);
   const [saving, setSaving] = useState(false);
 
@@ -217,7 +232,9 @@ function LoanForm({ accessToken, onDone, onCancel }: { accessToken: string; onDo
     event.preventDefault();
     const body = Object.fromEntries(new FormData(event.currentTarget).entries());
     setSaving(true);
-    const result = await submitCommunity('loans', body, accessToken);
+    const result = initial
+      ? await updateCommunity('loans', initial.id, body, accessToken)
+      : await submitCommunity('loans', body, accessToken);
     setSaving(false);
     if (result.ok) {
       onDone();
@@ -231,7 +248,7 @@ function LoanForm({ accessToken, onDone, onCancel }: { accessToken: string; onDo
       <div className="community-form-row">
         <label>
           <span>Typ</span>
-          <select name="kind" defaultValue="games">
+          <select name="kind" defaultValue={initial?.kind ?? 'games'}>
             {(Object.keys(LOAN_KIND_LABELS) as LoanKind[]).map((kind) => (
               <option key={kind} value={kind}>
                 {LOAN_KIND_LABELS[kind]}
@@ -241,32 +258,32 @@ function LoanForm({ accessToken, onDone, onCancel }: { accessToken: string; onDo
         </label>
         <label>
           <span>Co nabízíš *</span>
-          <input name="title" required maxLength={160} />
+          <input name="title" required maxLength={160} defaultValue={initial?.title} />
         </label>
       </div>
       <label>
         <span>Popis (množství, podmínky půjčení…)</span>
-        <textarea name="description" rows={3} maxLength={1000} />
+        <textarea name="description" rows={3} maxLength={1000} defaultValue={initial?.description ?? ''} />
       </label>
       <label>
         <span>Kde si to lze vyzvednout</span>
-        <input name="place" maxLength={160} />
+        <input name="place" maxLength={160} defaultValue={initial?.place ?? ''} />
       </label>
       <div className="community-form-row">
         <label>
           <span>Jméno vedoucího *</span>
-          <input name="leaderName" required maxLength={120} autoComplete="name" />
+          <input name="leaderName" required maxLength={120} autoComplete="name" defaultValue={initial?.leaderName} />
         </label>
         <label>
           <span>Kontakt (telefon nebo e-mail) *</span>
-          <input name="leaderContact" required maxLength={160} autoComplete="email" />
+          <input name="leaderContact" required maxLength={160} autoComplete="email" defaultValue={initial?.leaderContact} />
         </label>
       </div>
       <input name="company" className="community-honeypot" tabIndex={-1} autoComplete="off" aria-hidden="true" />
       {status ? <p className={`community-status community-status--${status.kind}`}>{status.text}</p> : null}
       <div className="community-form-actions">
         <button type="submit" className="homepage-cta primary" disabled={saving}>
-          {saving ? 'Ukládám…' : 'Nabídnout k půjčení'}
+          {saving ? 'Ukládám…' : initial ? 'Uložit změny' : 'Nabídnout k půjčení'}
         </button>
         <button type="button" className="homepage-cta secondary" onClick={onCancel}>
           Zrušit
@@ -436,6 +453,8 @@ export function CommunityPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [addingLodging, setAddingLodging] = useState(false);
   const [addingLoan, setAddingLoan] = useState(false);
+  const [editingLodging, setEditingLodging] = useState<LodgingTip | null>(null);
+  const [editingLoan, setEditingLoan] = useState<LoanOffer | null>(null);
   const [picked, setPicked] = useState<{ lat: number; lng: number } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -522,7 +541,7 @@ export function CommunityPage() {
             selectedId={selectedId}
             onSelect={setSelectedId}
             picked={picked}
-            picking={addingLodging}
+            picking={addingLodging || Boolean(editingLodging)}
             onPick={setPicked}
           />
 
@@ -546,7 +565,27 @@ export function CommunityPage() {
             />
           ) : null}
 
-          {selected ? (
+          {editingLodging && session ? (
+            <LodgingForm
+              key={editingLodging.id}
+              accessToken={session.token}
+              initial={editingLodging}
+              picked={picked}
+              onPick={setPicked}
+              onCancel={() => {
+                setEditingLodging(null);
+                setPicked(null);
+              }}
+              onDone={() => {
+                setEditingLodging(null);
+                setPicked(null);
+                setNotice('Tip je uložený.');
+                void reload();
+              }}
+            />
+          ) : null}
+
+          {selected && selected.id !== editingLodging?.id ? (
             <article className="community-detail">
               <h3>{selected.name}</h3>
               {selected.place ? <p>{selected.place}</p> : null}
@@ -572,13 +611,27 @@ export function CommunityPage() {
               ) : null}
               <ContactLine name={selected.leaderName} contact={selected.leaderContact} />
               {session && selected.ownerId === session.user.id ? (
-                <button
-                  type="button"
-                  className="homepage-cta secondary community-delete"
-                  onClick={() => void handleDelete('lodging', selected.id)}
-                >
-                  Smazat můj tip
-                </button>
+                <div className="community-form-actions">
+                  <button
+                    type="button"
+                    className="homepage-cta secondary"
+                    onClick={() => {
+                      setNotice(null);
+                      setAddingLodging(false);
+                      setPicked({ lat: selected.lat, lng: selected.lng });
+                      setEditingLodging(selected);
+                    }}
+                  >
+                    Upravit můj tip
+                  </button>
+                  <button
+                    type="button"
+                    className="homepage-cta secondary community-delete"
+                    onClick={() => void handleDelete('lodging', selected.id)}
+                  >
+                    Smazat můj tip
+                  </button>
+                </div>
               ) : null}
             </article>
           ) : null}
@@ -634,6 +687,20 @@ export function CommunityPage() {
             />
           ) : null}
 
+          {editingLoan && session ? (
+            <LoanForm
+              key={editingLoan.id}
+              accessToken={session.token}
+              initial={editingLoan}
+              onCancel={() => setEditingLoan(null)}
+              onDone={() => {
+                setEditingLoan(null);
+                setNotice('Nabídka je uložená.');
+                void reload();
+              }}
+            />
+          ) : null}
+
           {loading ? null : loans.length === 0 ? (
             <p className="community-hint">Zatím nikdo nic nenabídl.</p>
           ) : (
@@ -650,13 +717,26 @@ export function CommunityPage() {
                   {loan.description ? <p>{loan.description}</p> : null}
                   <ContactLine name={loan.leaderName} contact={loan.leaderContact} />
                   {session && loan.ownerId === session.user.id ? (
-                    <button
-                      type="button"
-                      className="homepage-cta secondary community-delete"
-                      onClick={() => void handleDelete('loans', loan.id)}
-                    >
-                      Smazat moji nabídku
-                    </button>
+                    <div className="community-form-actions">
+                      <button
+                        type="button"
+                        className="homepage-cta secondary"
+                        onClick={() => {
+                          setNotice(null);
+                          setAddingLoan(false);
+                          setEditingLoan(loan);
+                        }}
+                      >
+                        Upravit
+                      </button>
+                      <button
+                        type="button"
+                        className="homepage-cta secondary community-delete"
+                        onClick={() => void handleDelete('loans', loan.id)}
+                      >
+                        Smazat moji nabídku
+                      </button>
+                    </div>
                   ) : null}
                 </div>
               ))}

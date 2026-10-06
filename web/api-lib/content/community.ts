@@ -148,8 +148,32 @@ export async function handlePublicCommunity(req: any, res: any) {
   }
 }
 
-export async function handleCommunitySubmit(req: any, res: any, kind: 'lodging' | 'loan') {
-  if (req.method !== 'POST') {
+async function saveRow(
+  supabase: ReturnType<typeof getSupabaseAdminClient>,
+  table: 'content_lodging_tips' | 'content_equipment_loans',
+  fields: Record<string, unknown>,
+  ownerId: string,
+  id: string | undefined,
+  res: any,
+) {
+  if (!id) {
+    const { error } = await supabase.from(table).insert({ ...fields, owner_id: ownerId });
+    if (error) throw error;
+    res.status(201).json({ ok: true });
+    return;
+  }
+  const { data, error } = await supabase.from(table).update(fields).eq('id', id).eq('owner_id', ownerId).select('id');
+  if (error) throw error;
+  if (!data || data.length === 0) {
+    res.status(404).json({ error: 'Záznam nenalezen, nebo ho nemůžeš upravit.' });
+    return;
+  }
+  res.status(200).json({ ok: true });
+}
+
+export async function handleCommunitySubmit(req: any, res: any, kind: 'lodging' | 'loan', id?: string) {
+  const isUpdate = Boolean(id);
+  if (req.method !== (isUpdate ? 'PUT' : 'POST')) {
     res.status(405).json({ error: 'Method not allowed' });
     return;
   }
@@ -157,7 +181,7 @@ export async function handleCommunitySubmit(req: any, res: any, kind: 'lodging' 
 
   const ownerId = await authenticateCommunityRequest(req).catch(() => null);
   if (!ownerId) {
-    res.status(401).json({ error: 'Pro přidání tipu se nejdřív přihlas.' });
+    res.status(401).json({ error: isUpdate ? 'Pro úpravu se nejdřív přihlas.' : 'Pro přidání tipu se nejdřív přihlas.' });
     return;
   }
 
@@ -166,7 +190,7 @@ export async function handleCommunitySubmit(req: any, res: any, kind: 'lodging' 
     res.status(201).json({ ok: true });
     return;
   }
-  if (isRateLimited(req)) {
+  if (!isUpdate && isRateLimited(req)) {
     res.status(429).json({ error: 'Příliš mnoho odeslání, zkus to prosím za chvíli.' });
     return;
   }
@@ -200,7 +224,7 @@ export async function handleCommunitySubmit(req: any, res: any, kind: 'lodging' 
         res.status(400).json({ error: 'Vyber polohu ubytování v mapě České republiky.' });
         return;
       }
-      const { error } = await supabase.from('content_lodging_tips').insert({
+      const fields = {
         name,
         place: readText(payload, 'place', 160),
         lat,
@@ -212,12 +236,8 @@ export async function handleCommunitySubmit(req: any, res: any, kind: 'lodging' 
         review: readText(payload, 'review', 2000),
         leader_name: leaderName,
         leader_contact: leaderContact,
-        owner_id: ownerId,
-      });
-      if (error) {
-        throw error;
-      }
-      res.status(201).json({ ok: true });
+      };
+      await saveRow(supabase, 'content_lodging_tips', fields, ownerId, id, res);
       return;
     }
 
@@ -227,19 +247,14 @@ export async function handleCommunitySubmit(req: any, res: any, kind: 'lodging' 
       res.status(400).json({ error: 'Vyplň, co nabízíš k půjčení.' });
       return;
     }
-    const { error } = await supabase.from('content_equipment_loans').insert({
+    await saveRow(supabase, 'content_equipment_loans', {
       kind: loanKind,
       title,
       description: readText(payload, 'description', 1000),
       place: readText(payload, 'place', 160),
       leader_name: leaderName,
       leader_contact: leaderContact,
-      owner_id: ownerId,
-    });
-    if (error) {
-      throw error;
-    }
-    res.status(201).json({ ok: true });
+    }, ownerId, id, res);
   } catch (error) {
     logger.error('[api/content/community] submit failed', error);
     res.status(500).json({ error: 'Uložení se nepodařilo, zkus to prosím znovu.' });

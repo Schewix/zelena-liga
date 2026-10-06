@@ -65,6 +65,26 @@ export async function submitCommunity(
   }
 }
 
+export async function updateCommunity(
+  kind: 'lodging' | 'loans',
+  id: string,
+  body: Record<string, unknown>,
+  accessToken: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const response = await fetch(`/api/content/community/${kind}/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify(body),
+    });
+    if (response.ok) return { ok: true };
+    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+    return { ok: false, error: payload?.error || 'Uložení se nepodařilo, zkus to prosím znovu.' };
+  } catch {
+    return { ok: false, error: 'Uložení se nepodařilo, zkontroluj připojení.' };
+  }
+}
+
 export async function deleteCommunity(
   kind: 'lodging' | 'loans',
   id: string,
