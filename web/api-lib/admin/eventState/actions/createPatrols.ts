@@ -1,4 +1,4 @@
-import { BaseCategoryKey,CATEGORY_KEYS,EVENT_SCORING_SETTINGS_SELECT,MAX_PATROLS_PER_CATEGORY,STATION_CATEGORY_KEYS } from '../constants.js';
+import { BaseCategoryKey,CATEGORY_KEYS,EVENT_SCORING_SETTINGS_SELECT,MAX_PATROLS_PER_CATEGORY,SKIPPED_PATROL_NUMBERS,STATION_CATEGORY_KEYS } from '../constants.js';
 import { buildCounterpartPatrolCode,buildPatrolCodeLookupVariants,mapPatrolCategoryKey,parsePatrolCategoryNumber,parseSexedPatrolCode,resolvePatrolByCode } from '../patrols.js';
 import { respond } from '../respond.js';
 import { hasAtLeastOneFullName,normalizeAllowedCategories,normalizeAllowedTasks,normalizeEmail,normalizePatrolMembers,normalizeStationCode,normalizeStationOrderPayload,normalizeStationSplitCategories,normalizeText,parseIsoOrNull,toNonNegativeInt } from '../validation.js';
@@ -53,7 +53,7 @@ export async function createPatrols(supabaseAdmin: any, currentEventId: string, 
       const taken = takenNumbers.get(category)!;
       const allocated: number[] = [];
       for (let candidate = start; allocated.length < count; candidate += 1) {
-        if (!taken.has(candidate)) {
+        if (!taken.has(candidate) && !SKIPPED_PATROL_NUMBERS.has(candidate)) {
           taken.add(candidate);
           allocated.push(candidate);
         }

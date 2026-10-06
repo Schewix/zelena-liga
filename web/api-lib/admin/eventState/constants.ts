@@ -10,6 +10,9 @@ export const STATION_CATEGORY_KEYS: StationCategoryKey[] = ['NH', 'ND', 'MH', 'M
 
 export const MAX_PATROLS_PER_CATEGORY = 300;
 
+// Physical patrol numbers that do not exist in reality; never assigned to new patrols.
+export const SKIPPED_PATROL_NUMBERS: ReadonlySet<number> = new Set([29]);
+
 export const DEFAULT_ANNOUNCED_PLACES: Record<BaseCategoryKey, number> = {
   N: 5,
   M: 6,
