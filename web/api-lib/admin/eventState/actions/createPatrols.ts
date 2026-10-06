@@ -27,12 +27,45 @@ export async function createPatrols(supabaseAdmin: any, currentEventId: string, 
       disqualified: boolean;
     }> = [];
 
+    // Numbers already taken per age category (any patrol, H and D share one sequence).
+    // New patrols take the first free numbers at or after the requested start.
+    const { data: takenPatrols, error: takenPatrolsError } = await supabaseAdmin
+      .from('patrols')
+      .select('patrol_code, category')
+      .eq('event_id', targetEventId);
+    if (takenPatrolsError) {
+      return respond(res, 500, 'Failed to load existing patrols', takenPatrolsError.message);
+    }
+    const takenNumbers = new Map<string, Set<number>>();
+    ((takenPatrols ?? []) as Array<{ patrol_code?: string | null; category?: string | null }>).forEach((row) => {
+      const parsed = parsePatrolCategoryNumber(row.patrol_code, row.category);
+      if (parsed) {
+        if (!takenNumbers.has(parsed.category)) {
+          takenNumbers.set(parsed.category, new Set<number>());
+        }
+        takenNumbers.get(parsed.category)!.add(parsed.number);
+      }
+    });
+    const allocateNumbers = (category: string, start: number, count: number): number[] => {
+      if (!takenNumbers.has(category)) {
+        takenNumbers.set(category, new Set<number>());
+      }
+      const taken = takenNumbers.get(category)!;
+      const allocated: number[] = [];
+      for (let candidate = start; allocated.length < count; candidate += 1) {
+        if (!taken.has(candidate)) {
+          taken.add(candidate);
+          allocated.push(candidate);
+        }
+      }
+      return allocated;
+    };
+
     for (const bracketKey of STATION_CATEGORY_KEYS) {
       const count = Math.min(toNonNegativeInt(rawCounts[bracketKey], 0), MAX_PATROLS_PER_CATEGORY);
       const start = Math.max(1, toNonNegativeInt(rawStarts[bracketKey], 1));
       const { category, sex } = mapPatrolCategoryKey(bracketKey);
-      for (let i = 0; i < count; i += 1) {
-        const number = start + i;
+      for (const number of allocateNumbers(category, start, count)) {
         const code = `${bracketKey}-${number}`;
         rows.push({
           event_id: targetEventId,
@@ -52,8 +85,8 @@ export async function createPatrols(supabaseAdmin: any, currentEventId: string, 
     for (const category of CATEGORY_KEYS) {
       const count = Math.min(toNonNegativeInt(rawCounts[category], 0), MAX_PATROLS_PER_CATEGORY);
       const start = Math.max(1, toNonNegativeInt(rawStarts[category], 1));
-      for (let i = 0; i < count; i += 1) {
-        const code = `${category}-${start + i}`;
+      for (const number of allocateNumbers(category, start, count)) {
+        const code = `${category}-${number}`;
         rows.push({
           event_id: targetEventId,
           team_name: `Hlídka ${code}`,
@@ -163,5 +196,5 @@ export async function createPatrols(supabaseAdmin: any, currentEventId: string, 
       return respond(res, 500, 'Failed to create patrols', insertError.message);
     }
 
-    return res.status(200).json({ ok: true, created: rows.length });
+    return res.status(200).json({ ok: true, created: rows.length, codes: rows.map((row) => row.patrol_code) });
   }

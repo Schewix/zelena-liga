@@ -1562,7 +1562,18 @@ export function AdminDashboard({
         counts: patrolCounts,
         start_numbers: patrolStarts,
       });
-      setSetupSuccess(`Vytvořeno hlídek: ${Number(result?.created ?? 0)}.`);
+      const createdCodes = Array.isArray(result?.codes) ? (result.codes as string[]) : [];
+      const createdByCategory = BASE_CATEGORY_ORDER.map((category) => {
+        const numbers = createdCodes
+          .map((code) => code.match(/^([NMSR])[HD]?[- ]?(\d+)$/))
+          .filter((match): match is RegExpMatchArray => match?.[1] === category)
+          .map((match) => Number.parseInt(match[2], 10))
+          .sort((a, b) => a - b);
+        return numbers.length > 0 ? `${category}: ${formatNumberRanges(numbers)}` : null;
+      }).filter(Boolean);
+      setSetupSuccess(
+        `Vytvořeno hlídek: ${Number(result?.created ?? 0)}${createdByCategory.length ? ` (${createdByCategory.join('; ')})` : ''}.`,
+      );
       await loadSetupData();
     } catch (error) {
       console.error('Failed to create patrols', error);
