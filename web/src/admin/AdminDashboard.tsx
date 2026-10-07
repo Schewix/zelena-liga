@@ -2204,7 +2204,7 @@ setupSaving={setupSaving}
         </section>
         ) : null}
 
-        {isPatrolsPage && activeEventId ? <PatrolsOverviewSection eventId={activeEventId} /> : null}
+        {isPatrolsPage && activeEventId ? <PatrolsOverviewSection eventId={activeEventId} accessToken={accessToken} /> : null}
 
         {isPatrolsPage ? (
         <section className="admin-card admin-card--with-divider admin-card--section admin-section-block admin-section-block--patrols">

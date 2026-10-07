@@ -1,4 +1,5 @@
 import { loadLiveMap } from './actions/liveMap.js';
+import { loadPatrolPoints } from './actions/patrolPoints.js';
 import { targetAnswers } from './actions/targetAnswers.js';
 import { hasAtLeastOneFullName,normalizeAllowedCategories,normalizeAllowedTasks,normalizeEmail,normalizePatrolMembers,normalizeStationCode,normalizeStationOrderPayload,normalizeStationSplitCategories,normalizeText,parseIsoOrNull,toNonNegativeInt } from './validation.js';
 import { createEvent } from './actions/createEvent.js';
@@ -24,6 +25,7 @@ export async function handleSetupAction(
     return res.status(400).json({ error: 'Missing action.' });
   }
 
+  if (action === 'load_patrol_points') { return loadPatrolPoints(supabaseAdmin, payload, res); }
   if (action === 'load_live_map' || action === 'load_live_map_events') { return loadLiveMap(supabaseAdmin, payload, res); }
 
 

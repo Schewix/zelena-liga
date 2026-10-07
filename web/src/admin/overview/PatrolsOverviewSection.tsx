@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../supabaseClient';
+import { API_BASE_URL } from '../apiConfig';
 import { comparePatrolOrder } from '../exports/patrolWorkbook';
 import { normalizeText } from '../shared/text';
 
@@ -63,11 +64,25 @@ async function loadAllRows<T>(
   }
 }
 
+async function loadPatrolPoints(accessToken: string, eventId: string): Promise<Record<string, number>> {
+  if (!API_BASE_URL) throw new Error('Chybí konfigurace API.');
+  if (!accessToken) throw new Error('Chybí přístupový token.');
+  const response = await fetch(`${API_BASE_URL}/admin/event-state?setup=1`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'load_patrol_points', event_id: eventId }),
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.error || 'Načtení bodů selhalo.');
+  return body.totals ?? {};
+}
+
 type PatrolsOverviewSectionProps = {
   eventId: string;
+  accessToken: string | null | undefined;
 };
 
-export function PatrolsOverviewSection({ eventId }: PatrolsOverviewSectionProps) {
+export function PatrolsOverviewSection({ eventId, accessToken }: PatrolsOverviewSectionProps) {
   const [rows, setRows] = useState<PatrolOverviewRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -104,14 +119,7 @@ export function PatrolsOverviewSection({ eventId }: PatrolsOverviewSectionProps)
             .order('id')
             .range(from, to),
         ),
-        loadAllRows<{ patrol_id: string; points: number | null }>((from, to) =>
-          supabase
-            .from('station_scores')
-            .select('patrol_id, points')
-            .eq('event_id', eventId)
-            .order('id')
-            .range(from, to),
-        ),
+        loadPatrolPoints(accessToken ?? '', eventId),
       ]);
 
       const passageCounts = new Map<string, number>();
@@ -122,10 +130,6 @@ export function PatrolsOverviewSection({ eventId }: PatrolsOverviewSectionProps)
           finishedIds.add(row.patrol_id);
         }
         passageCounts.set(row.patrol_id, (passageCounts.get(row.patrol_id) ?? 0) + 1);
-      });
-      const pointSums = new Map<string, number>();
-      scores.forEach((row) => {
-        pointSums.set(row.patrol_id, (pointSums.get(row.patrol_id) ?? 0) + (row.points ?? 0));
       });
 
       const next = patrols
@@ -140,7 +144,7 @@ export function PatrolsOverviewSection({ eventId }: PatrolsOverviewSectionProps)
           disqualified: row.disqualified === true,
           passages: passageCounts.get(row.id) ?? 0,
           finished: finishedIds.has(row.id),
-          points: pointSums.get(row.id) ?? 0,
+          points: scores[row.id] ?? 0,
         }))
         .sort((a, b) => comparePatrolOrder(
           { patrol_code: a.patrol_code, category: a.category, sex: a.sex },
@@ -153,7 +157,7 @@ export function PatrolsOverviewSection({ eventId }: PatrolsOverviewSectionProps)
     } finally {
       setLoading(false);
     }
-  }, [eventId]);
+  }, [eventId, accessToken]);
 
   useEffect(() => {
     void load();
