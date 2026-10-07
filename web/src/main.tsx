@@ -5,6 +5,7 @@ import './auth/fetch';
 import { AuthProvider } from './auth/context';
 import ErrorBoundary from './components/ErrorBoundary';
 import AppErrorScreen from './components/AppErrorScreen';
+import { installClientErrorReporting } from './clientErrorReporting';
 import { registerSW } from 'virtual:pwa-register';
 import {
   DESKOVKY_ROUTE_PREFIX,
@@ -253,6 +254,8 @@ async function requestPersistentStorage() {
     }
   }
 }
+
+installClientErrorReporting();
 
 const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
 

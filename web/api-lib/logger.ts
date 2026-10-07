@@ -75,6 +75,14 @@ function record(level: Level, message: string, details: unknown[]) {
     if (typeof code === 'string' && /^[A-Z0-9_]{1,40}$/.test(code)) entry.error_code = code;
     const messageId = (detail as { message_id?: unknown }).message_id;
     if (typeof messageId === 'string' && /^[a-f0-9-]{36}$/i.test(messageId)) entry.message_id = messageId;
+    // Browser error reports are sanitized and truncated by api/client-error.ts.
+    const client = (detail as { client?: unknown }).client;
+    if (client && typeof client === 'object') {
+      for (const key of ['kind', 'name', 'message', 'stack', 'path', 'app_release']) {
+        const value = (client as Record<string, unknown>)[key];
+        if (typeof value === 'string') entry[`client_${key}`] = value.slice(0, key === 'stack' ? 800 : 300);
+      }
+    }
   }
   if (current) {
     if (level === 'error') current.hasError = true;

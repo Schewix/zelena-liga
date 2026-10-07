@@ -1,5 +1,6 @@
 import React from 'react';
 import AppErrorScreen from './AppErrorScreen';
+import { reportClientError } from '../clientErrorReporting';
 
 type ErrorBoundaryProps = {
   children: React.ReactNode;
@@ -25,6 +26,7 @@ export default class ErrorBoundary extends React.Component<ErrorBoundaryProps, E
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     console.error('Unhandled application error', { error, info });
+    reportClientError('react', error);
   }
 
   render() {
