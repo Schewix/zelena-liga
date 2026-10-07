@@ -25,9 +25,9 @@ beforeEach(() => {
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.restoreAllMocks(); });
 
 async function post(body: unknown, method = 'POST') {
-  const { default: handler } = await import('../../api/client-error');
+  const { default: handler } = await import('../../api/content');
   const res = response();
-  await handler({ method, body }, res);
+  await handler({ method, body, query: { path: 'client-error' } }, res);
   await Promise.all(background.tasks);
   return res;
 }
@@ -54,8 +54,8 @@ describe('client error endpoint', () => {
   });
 
   it('caps reports per minute', async () => {
-    const { default: handler } = await import('../../api/client-error');
-    for (let i = 0; i < 40; i++) await handler({ method: 'POST', body: { kind: 'error', message: `m${i}` } }, response());
+    const { default: handler } = await import('../../api/content');
+    for (let i = 0; i < 40; i++) await handler({ method: 'POST', query: { path: 'client-error' }, body: { kind: 'error', message: `m${i}` } }, response());
     await Promise.all(background.tasks);
     expect(events().filter(e => e.message === 'client.error')).toHaveLength(30);
   });

@@ -1,4 +1,4 @@
-import { logger, withLogging } from '../api-lib/logger.js';
+import { logger } from '../logger.js';
 
 const MAX_PER_MINUTE = 30;
 let windowStart = 0;
@@ -16,7 +16,7 @@ function clean(value: unknown, max: number): string | undefined {
     .slice(0, max);
 }
 
-async function handler(req: any, res: any) {
+export async function handleClientError(req: any, res: any) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ error: 'Method Not Allowed' });
@@ -47,5 +47,3 @@ async function handler(req: any, res: any) {
   });
   return res.status(204).end();
 }
-
-export default withLogging('/api/client-error', handler);

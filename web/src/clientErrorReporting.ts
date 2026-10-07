@@ -1,4 +1,4 @@
-const ENDPOINT = '/api/client-error';
+const ENDPOINT = '/api/content/client-error';
 const MAX_REPORTS_PER_PAGE = 5;
 
 let sent = 0;

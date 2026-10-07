@@ -1,4 +1,5 @@
 import { handleAdminAfterparty } from '../api-lib/content/afterparty.js';
+import { handleClientError } from '../api-lib/content/clientError.js';
 import { handleCommunityAuth } from '../api-lib/content/communityAuth.js';
 import { handleCommunityDelete,handleCommunitySubmit,handlePublicCommunity } from '../api-lib/content/community.js';
 import { handleAdminAlbumTitles } from '../api-lib/content/albumTitles.js';
@@ -58,6 +59,11 @@ async function handler(req: any, res: any) {
       await handlePublicDetail(req, res, articleSlug);
       return;
     }
+  }
+
+  if (segments[0] === 'client-error') {
+    await handleClientError(req, res);
+    return;
   }
 
   if (segments[0] === 'seo') {
