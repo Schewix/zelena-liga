@@ -43,3 +43,11 @@ This integration does not yet collect frontend errors, Supabase internal logs or
 Supabase Edge Function logs. Resend delivery/bounce tracking needs a separately
 configured and signature-verified webhook. Uptime monitors and alert rules are
 configured in Better Stack; ingesting logs alone does not create notifications.
+
+## Heartbeat for the daily cron
+
+Set `BETTER_STACK_HEARTBEAT_URL` in Vercel's Production environment to the URL of the
+Better Stack heartbeat "zelenaliga daily cron (logs pipeline)" (period 1 day, grace
+2 hours). `/api/content/admin/import` pings it after each run started by the Vercel
+cron (requests carrying `CRON_SECRET`); manual runs do not ping. Without the variable
+nothing is sent. Treat the URL as a secret and do not commit it.
