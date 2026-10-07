@@ -12,25 +12,38 @@ type PatrolOverviewRow = {
   active: boolean;
   disqualified: boolean;
   passages: number;
+  finished: boolean;
   points: number;
 };
 
-type StatusKey = 'ok' | 'out' | 'dsq';
+type StatusKey = 'waiting' | 'course' | 'finished' | 'out' | 'dsq';
 type StatusFilter = 'all' | StatusKey;
 
 const STATUS_LABELS: Record<StatusKey, string> = {
-  ok: 'V soutěži',
+  waiting: 'Čeká na start',
+  course: 'Na trati',
+  finished: 'V cíli',
   out: 'Mimo soutěž',
   dsq: 'Diskvalifikována',
 };
 
 const PAGE_SIZE = 1000;
 
-function toStatus(row: Pick<PatrolOverviewRow, 'active' | 'disqualified'>): StatusKey {
+const FINISH_STATION_CODE = 'T';
+
+const CATEGORY_FILTER_OPTIONS = ['N', 'NH', 'ND', 'M', 'MH', 'MD', 'S', 'SH', 'SD', 'R', 'RH', 'RD'] as const;
+
+function toStatus(row: Pick<PatrolOverviewRow, 'active' | 'disqualified' | 'passages' | 'finished'>): StatusKey {
   if (row.disqualified) {
     return 'dsq';
   }
-  return row.active ? 'ok' : 'out';
+  if (!row.active) {
+    return 'out';
+  }
+  if (row.finished) {
+    return 'finished';
+  }
+  return row.passages > 0 ? 'course' : 'waiting';
 }
 
 async function loadAllRows<T>(
@@ -83,10 +96,10 @@ export function PatrolsOverviewSection({ eventId }: PatrolsOverviewSectionProps)
             .order('id')
             .range(from, to),
         ),
-        loadAllRows<{ patrol_id: string }>((from, to) =>
+        loadAllRows<{ patrol_id: string; stations: { code: string } | { code: string }[] | null }>((from, to) =>
           supabase
             .from('station_passages')
-            .select('patrol_id')
+            .select('patrol_id, stations(code)')
             .eq('event_id', eventId)
             .order('id')
             .range(from, to),
@@ -102,7 +115,12 @@ export function PatrolsOverviewSection({ eventId }: PatrolsOverviewSectionProps)
       ]);
 
       const passageCounts = new Map<string, number>();
+      const finishedIds = new Set<string>();
       passages.forEach((row) => {
+        const station = Array.isArray(row.stations) ? row.stations[0] : row.stations;
+        if (normalizeText(station?.code).toUpperCase() === FINISH_STATION_CODE) {
+          finishedIds.add(row.patrol_id);
+        }
         passageCounts.set(row.patrol_id, (passageCounts.get(row.patrol_id) ?? 0) + 1);
       });
       const pointSums = new Map<string, number>();
@@ -121,6 +139,7 @@ export function PatrolsOverviewSection({ eventId }: PatrolsOverviewSectionProps)
           active: row.active !== false,
           disqualified: row.disqualified === true,
           passages: passageCounts.get(row.id) ?? 0,
+          finished: finishedIds.has(row.id),
           points: pointSums.get(row.id) ?? 0,
         }))
         .sort((a, b) => comparePatrolOrder(
@@ -140,13 +159,8 @@ export function PatrolsOverviewSection({ eventId }: PatrolsOverviewSectionProps)
     void load();
   }, [load]);
 
-  const categories = useMemo(
-    () => Array.from(new Set(rows.map((row) => row.category).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'cs')),
-    [rows],
-  );
-
   const counts = useMemo(() => {
-    const result: Record<StatusKey, number> = { ok: 0, out: 0, dsq: 0 };
+    const result: Record<StatusKey, number> = { waiting: 0, course: 0, finished: 0, out: 0, dsq: 0 };
     rows.forEach((row) => {
       result[toStatus(row)] += 1;
     });
@@ -156,7 +170,7 @@ export function PatrolsOverviewSection({ eventId }: PatrolsOverviewSectionProps)
   const visibleRows = useMemo(() => {
     const needle = search.trim().toLowerCase();
     return rows.filter((row) => {
-      if (categoryFilter !== 'all' && row.category !== categoryFilter) {
+      if (categoryFilter !== 'all' && !`${row.category}${row.sex}`.toUpperCase().startsWith(categoryFilter)) {
         return false;
       }
       if (statusFilter !== 'all' && toStatus(row) !== statusFilter) {
@@ -175,7 +189,7 @@ export function PatrolsOverviewSection({ eventId }: PatrolsOverviewSectionProps)
         <div>
           <h2>Přehled hlídek</h2>
           <p className="admin-card-subtitle">
-            {`Celkem ${rows.length} · V soutěži ${counts.ok} · Mimo soutěž ${counts.out} · Diskvalifikované ${counts.dsq}`}
+            {`Celkem ${rows.length} · Čeká na start ${counts.waiting} · Na trati ${counts.course} · V cíli ${counts.finished} · Mimo soutěž ${counts.out} · Diskvalifikované ${counts.dsq}`}
           </p>
         </div>
         <div className="admin-card-actions">
@@ -203,7 +217,7 @@ export function PatrolsOverviewSection({ eventId }: PatrolsOverviewSectionProps)
           aria-label="Kategorie"
         >
           <option value="all">Všechny kategorie</option>
-          {categories.map((category) => (
+          {CATEGORY_FILTER_OPTIONS.map((category) => (
             <option key={category} value={category}>
               {category}
             </option>
