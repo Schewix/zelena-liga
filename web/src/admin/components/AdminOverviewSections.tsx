@@ -606,6 +606,7 @@ export function AdminResultsSection({
 
 type StatsSectionProps = {
   eventId: string;
+  accessToken: string | null | undefined;
 };
 
 type StatsCategoryKey = 'N' | 'M' | 'S' | 'R';
@@ -663,7 +664,7 @@ type TroopCountRow = {
   byCategory: Record<StatsCategoryKey, number>;
 };
 
-export function AdminStatsSection({ eventId }: StatsSectionProps) {
+export function AdminStatsSection({ eventId, accessToken }: StatsSectionProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [overallWaitMedian, setOverallWaitMedian] = useState<number | null>(null);
@@ -684,24 +685,31 @@ export function AdminStatsSection({ eventId }: StatsSectionProps) {
     const loadStats = async () => {
       setLoading(true);
       setError(null);
-      const [stationsResponse, passagesResponse, scoresResponse, patrolsResponse] = await Promise.all([
-        supabase
-          .from('stations')
-          .select('id, code, name')
-          .eq('event_id', eventId),
-        supabase
-          .from('station_passages')
-          .select('station_id, wait_minutes, patrols(category)')
-          .eq('event_id', eventId),
-        supabase
-          .from('station_scores')
-          .select('station_id, points, patrols(category)')
-          .eq('event_id', eventId),
-        supabase
-          .from('patrols')
-          .select('team_name, category, active')
-          .eq('event_id', eventId),
-      ]);
+      type StatsResponse = { data: unknown[] | null; error: unknown };
+      let stationsResponse: StatsResponse;
+      let passagesResponse: StatsResponse;
+      let scoresResponse: StatsResponse;
+      let patrolsResponse: StatsResponse;
+      try {
+        if (!API_BASE_URL) throw new Error('Chybí konfigurace API.');
+        if (!accessToken) throw new Error('Chybí přístupový token.');
+        const response = await fetch(`${API_BASE_URL}/admin/event-state?setup=1`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'load_event_stats', event_id: eventId }),
+        });
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.error || 'Načtení statistik selhalo.');
+        stationsResponse = { data: body.stations ?? [], error: null };
+        passagesResponse = { data: body.station_passages ?? [], error: null };
+        scoresResponse = { data: body.station_scores ?? [], error: null };
+        patrolsResponse = { data: body.patrols ?? [], error: null };
+      } catch (loadError) {
+        stationsResponse = { data: null, error: loadError };
+        passagesResponse = { data: null, error: null };
+        scoresResponse = { data: null, error: null };
+        patrolsResponse = { data: null, error: null };
+      }
 
       if (canceled) {
         return;
@@ -890,7 +898,7 @@ export function AdminStatsSection({ eventId }: StatsSectionProps) {
     return () => {
       canceled = true;
     };
-  }, [eventId]);
+  }, [eventId, accessToken]);
 
   return (
     <section

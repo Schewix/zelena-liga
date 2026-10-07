@@ -2402,6 +2402,7 @@ handleOpenStationMissing={handleOpenStationMissing}
         {isStatisticsPage ? (
         <AdminStatsSection
           eventId={activeEventId}
+          accessToken={accessToken}
         />
         ) : null}
 
