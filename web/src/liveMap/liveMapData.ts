@@ -97,7 +97,8 @@ export function buildLivePatrolStates(input: {
     const hasStart = Boolean(timing?.start_time);
     const hasFinish = Boolean(timing?.finish_time);
 
-    if (!hasStart) {
+    // Hlídka ve sdílené frontě stanoviště je na trase, i když jí chybí zapsaný start.
+    if (!hasStart && !activeTicketByPatrol.has(patrol.id)) {
       notStarted.push({
         patrol,
         status: 'na-trase',

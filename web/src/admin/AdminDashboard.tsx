@@ -59,6 +59,7 @@ import { TargetAnswersSection } from './answers/TargetAnswersSection';
 import { EventScoringSettings } from './setup/EventScoringSettings';
 import { PatrolImportSection } from './patrolImport/PatrolImportSection';
 import { StationPassagesSection } from './overview/StationPassagesSection';
+import { PatrolsOverviewSection } from './overview/PatrolsOverviewSection';
 
 export function AdminDashboard({
   auth,
@@ -2202,6 +2203,8 @@ setupSaving={setupSaving}
           </CollapsibleSetupSection>
         </section>
         ) : null}
+
+        {isPatrolsPage && activeEventId ? <PatrolsOverviewSection eventId={activeEventId} /> : null}
 
         {isPatrolsPage ? (
         <section className="admin-card admin-card--with-divider admin-card--section admin-section-block admin-section-block--patrols">

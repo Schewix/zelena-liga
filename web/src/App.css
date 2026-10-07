@@ -878,6 +878,12 @@ body {
   gap: 8px;
 }
 
+.calc-profile-inline input[type='number'] {
+  width: 5.5rem;
+  flex: 0 0 auto;
+  padding: 8px 12px;
+}
+
 .calc-profile-inline .ghost {
   white-space: nowrap;
 }

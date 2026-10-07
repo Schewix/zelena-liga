@@ -1631,21 +1631,21 @@ export function StationApp({
     void handleOpenPatrol('profile');
   }, [handleOpenPatrol]);
 
-  const handleSavePatrolProfile = useCallback(async () => {
+  const handleSavePatrolProfile = useCallback(async (): Promise<boolean> => {
     if (!isTargetStation || !activePatrol) {
-      return;
+      return false;
     }
     if (!AUTH_API_BASE_URL) {
       setPatrolProfileError('Chybí konfigurace API (VITE_AUTH_API_URL).');
       setPatrolProfileMessage(null);
-      return;
+      return false;
     }
 
     const sessionResult = requireAccessToken(auth.tokens.accessToken);
     if (!sessionResult.accessToken) {
       setPatrolProfileError('Chybí přístupový token. Přihlas se znovu.');
       setPatrolProfileMessage(null);
-      return;
+      return false;
     }
 
     const profileValidationError = validatePatrolProfileDraft(
@@ -1655,7 +1655,7 @@ export function StationApp({
     if (profileValidationError) {
       setPatrolProfileError(profileValidationError);
       setPatrolProfileMessage(null);
-      return;
+      return false;
     }
 
     const nextTeamName = calcProfileDraft.teamName;
@@ -1668,7 +1668,7 @@ export function StationApp({
     if (nextNumber && !/^\d{1,3}$/.test(nextNumber)) {
       setPatrolProfileError('Číslo hlídky musí být celé číslo.');
       setPatrolProfileMessage(null);
-      return;
+      return false;
     }
     const numberChanged = Boolean(nextNumber) && Number(nextNumber) !== Number(currentNumber);
     const shouldCleanupSharedNumber =
@@ -1760,11 +1760,13 @@ export function StationApp({
           ? 'Profil hlídky byl uložen. Protějšek se stejným číslem byl odstraněn.'
           : 'Profil hlídky byl uložen.',
       );
+      return true;
     } catch (error) {
       console.error('Failed to save patrol profile', error);
       setPatrolProfileError(
         error instanceof Error && error.message ? error.message : 'Uložení profilu hlídky se nepodařilo.',
       );
+      return false;
     } finally {
       setSavingPatrolProfile(false);
     }
@@ -2746,6 +2748,22 @@ export function StationApp({
     clearWait();
     lastScanRef.current = null;
   }, [clearWait, isTargetStation]);
+
+  const handleSavePatrolProfileAndAsk = useCallback(async () => {
+    const saved = await handleSavePatrolProfile();
+    if (!saved || !isCalcProfileOnlyMode || typeof window === 'undefined') {
+      return;
+    }
+    const goToScoring = window.confirm(
+      'Profil hlídky byl uložen. Přejít na bodování?\n\nOK = otevřít bodování, Zrušit = vrátit hlídku do přehledu.',
+    );
+    if (goToScoring) {
+      handleOpenFullCalcForm();
+      return;
+    }
+    resetForm();
+    scrollToSummary();
+  }, [handleOpenFullCalcForm, handleSavePatrolProfile, isCalcProfileOnlyMode, resetForm, scrollToSummary]);
 
   const handleReturnToQueue = useCallback(async () => {
     if (!activePatrol) {
@@ -4371,7 +4389,7 @@ showCompletedSummary={showCompletedSummary}
 calcProfileRef={calcProfileRef}
 isCalcProfileOnlyMode={isCalcProfileOnlyMode}
 handleOpenFullCalcForm={handleOpenFullCalcForm}
-handleSavePatrolProfile={handleSavePatrolProfile}
+handleSavePatrolProfile={handleSavePatrolProfileAndAsk}
 savingPatrolProfile={savingPatrolProfile}
 calcTroopSelectDraft={calcTroopSelectDraft}
 setCalcTroopSelectDraft={setCalcTroopSelectDraft}
