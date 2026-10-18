@@ -37,7 +37,7 @@ export const ROUTE_SEO: Record<string, { title: string; description: string }> =
     description: 'Výsledky Setonova závodu pro výpočetku.',
   },
   '/clanky': {
-    title: 'Články a novinky | Zelená liga',
+    title: 'Články | Zelená liga',
     description: 'Aktuality, články a novinky ze soutěží Zelené ligy.',
   },
   '/fotogalerie': {

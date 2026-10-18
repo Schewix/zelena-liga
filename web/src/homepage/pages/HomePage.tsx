@@ -65,7 +65,7 @@ export function Homepage({
 
         <section className="homepage-section" id="clanky" aria-labelledby="clanky-heading">
           <div className="homepage-section-header homepage-section-header--left">
-            <h2 id="clanky-heading">Články a novinky</h2>
+            <h2 id="clanky-heading">Články</h2>
             <span className="homepage-section-accent" aria-hidden="true" />
           </div>
           {articlesLoading ? (

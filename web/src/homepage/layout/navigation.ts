@@ -5,7 +5,7 @@ export const NAV_ITEMS = [
   { id: 'plan-akci', label: 'Plán akcí', href: '/plan-akci' },
   { id: 'aktualni-poradi', label: 'Aktuální pořadí', href: '/aktualni-poradi' },
   { id: 'historicka-tabulka', label: 'Historická tabulka', href: '/historicka-tabulka' },
-  { id: 'clanky', label: 'Články a novinky', href: '/clanky' },
+  { id: 'clanky', label: 'Články', href: '/clanky' },
   { id: 'fotogalerie', label: 'Fotogalerie', href: '/fotogalerie' },
   { id: 'souteze', label: 'Soutěže', href: '/souteze' },
   { id: 'oddily', label: 'Oddíly SPTO', href: '/oddily' },

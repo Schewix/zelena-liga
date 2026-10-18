@@ -22,7 +22,7 @@ export function ArticlesIndexPage({
       <main className="homepage-main homepage-single articles-page" aria-labelledby="articles-heading">
         <section className="homepage-section" aria-labelledby="articles-heading">
           <div className="homepage-section-header homepage-section-header--left">
-            <h1 id="articles-heading">Články a novinky</h1>
+            <h1 id="articles-heading">Články</h1>
             <span className="homepage-section-accent" aria-hidden="true" />
           </div>
           {articlesLoading ? (
