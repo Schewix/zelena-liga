@@ -57,6 +57,7 @@ const PRIVATE_PREFIXES = [
 const MAIN_LINKS: Array<[string, string]> = [
   ['/souteze', 'Soutěže'],
   ['/aktualni-poradi', 'Aktuální pořadí'],
+  ['/historicka-tabulka', 'Historická tabulka'],
   ['/plan-akci', 'Plán akcí'],
   ['/clanky', 'Články'],
   ['/oddily', 'Oddíly'],

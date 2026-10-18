@@ -28,12 +28,13 @@ export const SITEMAP_STATIC_ENTRIES: SitemapStaticEntry[] = [
   { path: '/aplikace/deskovky/standings', changefreq: 'daily', priority: 0.5 },
   { path: '/aplikace/deskovky/pravidla', changefreq: 'monthly', priority: 0.4 },
   { path: '/aktualni-poradi', changefreq: 'weekly', priority: 0.7 },
+  { path: '/historicka-tabulka', changefreq: 'monthly', priority: 0.6 },
   { path: '/plan-akci', changefreq: 'monthly', priority: 0.7 },
   { path: '/oddily', changefreq: 'weekly', priority: 0.7 },
   { path: '/fotogalerie', changefreq: 'daily', priority: 0.7 },
   { path: '/clanky', changefreq: 'daily', priority: 0.8 },
   { path: '/o-spto', changefreq: 'monthly', priority: 0.6 },
-  { path: '/sponzori', changefreq: 'monthly', priority: 0.6 },
+  { path: '/partneri', changefreq: 'monthly', priority: 0.6 },
   { path: '/kontakty', changefreq: 'monthly', priority: 0.6 },
 ];
 

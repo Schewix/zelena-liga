@@ -3,7 +3,6 @@ useEffect,
 useState
 } from 'react';
 import { SiteShell } from '../layout/SiteShell';
-import { LeagueHistoryTable } from './LeagueHistoryTable';
 import { addCompetitionRanks,buildLeagueRows,formatLeagueScore,getActiveLeagueSeason,LeagueData } from './model';
 
 export function LeagueStandingsPage({ leagueData }: { leagueData: LeagueData }) {
@@ -75,7 +74,9 @@ export function LeagueStandingsPage({ leagueData }: { leagueData: LeagueData }) 
             ))}
           </div>
         </div>
-        <LeagueHistoryTable />
+        <p className="homepage-league-note">
+          Výsledky všech dosavadních ročníků najdeš v <a href="/historicka-tabulka">historické tabulce</a>.
+        </p>
       </main>
     </SiteShell>
   );

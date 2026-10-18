@@ -4,13 +4,14 @@ export const NAV_ITEMS = [
   { id: 'domu', label: 'Domů', href: '/' },
   { id: 'plan-akci', label: 'Plán akcí', href: '/plan-akci' },
   { id: 'aktualni-poradi', label: 'Aktuální pořadí', href: '/aktualni-poradi' },
+  { id: 'historicka-tabulka', label: 'Historická tabulka', href: '/historicka-tabulka' },
   { id: 'clanky', label: 'Články a novinky', href: '/clanky' },
   { id: 'fotogalerie', label: 'Fotogalerie', href: '/fotogalerie' },
   { id: 'souteze', label: 'Soutěže', href: '/souteze' },
   { id: 'oddily', label: 'Oddíly SPTO', href: '/oddily' },
   { id: 'o-spto', label: 'O SPTO', href: '/o-spto' },
   { id: 'tipy', label: 'Tipy', href: '/tipy' },
-  { id: 'sponzori', label: 'Sponzoři', href: '/sponzori' },
+  { id: 'partneri', label: 'Partneři', href: '/partneri' },
   { id: 'kontakty', label: 'Kontakty', href: '/kontakty' },
 ];
 
@@ -26,6 +27,9 @@ export function resolveActiveNav(pathname: string) {
   }
   if (slug === 'aktualni-poradi' || slug === 'zelena-liga') {
     return 'aktualni-poradi';
+  }
+  if (slug === 'historicka-tabulka') {
+    return 'historicka-tabulka';
   }
   if (slug === 'plan-akci') {
     return 'plan-akci';
@@ -48,8 +52,8 @@ export function resolveActiveNav(pathname: string) {
   if (slug === 'tipy') {
     return 'tipy';
   }
-  if (slug === 'sponzori') {
-    return 'sponzori';
+  if (slug === 'partneri' || slug === 'sponzori') {
+    return 'partneri';
   }
   return undefined;
 }

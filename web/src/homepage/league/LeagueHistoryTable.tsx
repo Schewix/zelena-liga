@@ -28,7 +28,6 @@ export function LeagueHistoryTable() {
 
   return (
     <div className="homepage-card homepage-league-history-card">
-      <h2>Historická tabulka</h2>
       {failed ? <p className="homepage-league-note">Historickou tabulku se nepodařilo načíst.</p> : null}
       {!history && !failed ? <p className="homepage-league-note" role="status">Načítám historickou tabulku…</p> : null}
       {history && rows.length > 0 ? (

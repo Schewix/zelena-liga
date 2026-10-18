@@ -25,6 +25,7 @@ import { ContactsPage } from './pages/ContactsPage';
 import { HOMEPAGE_GALLERY_PREFETCH_DELAY_MS, HOMEPAGE_GALLERY_PREFETCH_LIMIT, Homepage } from './pages/HomePage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { SponsorsPage } from './pages/SponsorsPage';
+import { LeagueHistoryPage } from './league/LeagueHistoryPage';
 import { SchedulePage } from './schedule/SchedulePage';
 import { TROOPS } from './troops/model';
 import { TroopDetailPage, TroopsPage } from './troops/pages';
@@ -357,6 +358,10 @@ export default function ZelenaligaSite() {
       return <LeagueStandingsPage leagueData={leagueData} />;
     }
 
+    if (slug === 'historicka-tabulka') {
+      return <LeagueHistoryPage />;
+    }
+
     if (slug === 'aplikace') {
       return <ApplicationsPage />;
     }
@@ -418,7 +423,7 @@ export default function ZelenaligaSite() {
       return <ContactsPage />;
     }
 
-    if (slug === 'sponzori') {
+    if (slug === 'partneri' || slug === 'sponzori') {
       return <SponsorsPage />;
     }
 

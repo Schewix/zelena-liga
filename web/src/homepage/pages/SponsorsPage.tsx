@@ -6,7 +6,7 @@ export function SponsorsPage() {
   return (
     <SiteShell>
       <main className="homepage-main homepage-single" aria-labelledby="sponsors-heading">
-        <h1 id="sponsors-heading">Sponzoři</h1>
+        <h1 id="sponsors-heading">Partneři</h1>
         <p className="homepage-lead">Podpořte děti.</p>
         <div className="homepage-card sponsors-content">
           <p>Jen stěží bychom mohli fungovat bez podpory našich přátel, partnerů a sponzorů.</p>

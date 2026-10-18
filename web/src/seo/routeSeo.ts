@@ -12,6 +12,10 @@ export const ROUTE_SEO: Record<string, { title: string; description: string }> =
     title: 'Aktuální pořadí Zelené ligy',
     description: 'Průběžné pořadí oddílů v Zelené lize a bodování jednotlivých soutěží.',
   },
+  '/historicka-tabulka': {
+    title: 'Historická tabulka Zelené ligy',
+    description: 'Body oddílů SPTO Brno ve všech dosavadních ročnících Zelené ligy.',
+  },
   '/aplikace': {
     title: 'Aplikace Zelené ligy',
     description: 'Veřejné aplikace a výsledkové přehledy soutěží Zelené ligy.',
@@ -52,9 +56,9 @@ export const ROUTE_SEO: Record<string, { title: string; description: string }> =
     title: 'Kontakty | Zelená liga',
     description: 'Kontaktní informace pro organizátory Zelené ligy a SPTO Brno.',
   },
-  '/sponzori': {
-    title: 'Sponzoři | Zelená liga',
-    description: 'Sponzoři a podpora činnosti SPTO a Zelené ligy.',
+  '/partneri': {
+    title: 'Partneři | Zelená liga',
+    description: 'Partneři, sponzoři a podpora činnosti SPTO a Zelené ligy.',
   },
   '/o-spto': {
     title: 'O SPTO Brno | Zelená liga',

@@ -107,6 +107,17 @@
   z-index: 20;
 }
 
+.homepage-nav:not(.is-compact) {
+  border-radius: 30px;
+}
+
+.homepage-nav:not(.is-compact) .homepage-nav-inner {
+  flex-wrap: wrap;
+  justify-content: center;
+  row-gap: 4px;
+  overflow-x: visible;
+}
+
 .homepage-nav.is-compact {
   width: auto;
   max-width: none;
