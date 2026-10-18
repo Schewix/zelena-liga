@@ -114,8 +114,14 @@
 .homepage-nav:not(.is-compact) .homepage-nav-inner {
   flex-wrap: wrap;
   justify-content: center;
-  row-gap: 4px;
+  gap: 4px 0;
   overflow-x: visible;
+}
+
+.homepage-nav:not(.is-compact) .homepage-nav-link {
+  gap: 4px;
+  padding: 8px 5px;
+  font-size: 0.86rem;
 }
 
 .homepage-nav.is-compact {
