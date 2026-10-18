@@ -1,0 +1,30 @@
+name: Content Notify
+
+# Každých 30 minut zkontroluje, jestli na webu přibyl nový článek nebo fotoalbum,
+# a pošle o tom e-mail (logika je v /api/content/admin/notify).
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: content-notify
+  cancel-in-progress: false
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for new content
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::warning::Secret CRON_SECRET není nastavený, upozornění se neposílají."
+            exit 0
+          fi
+          curl --fail-with-body --silent --show-error --max-time 120 \
+            -X POST -H "Authorization: Bearer $CRON_SECRET" \
+            https://www.zelenaliga.cz/api/content/admin/notify

@@ -13,6 +13,7 @@ import { handleAdminLeague,handlePublicLeague } from '../api-lib/content/league.
 import { handleAdminLeagueHistory,handlePublicLeagueHistory } from '../api-lib/content/leagueHistory.js';
 import { handleAdminScheduleEvent,handleAdminScheduleEvents,handlePublicSchedule } from '../api-lib/content/schedule.js';
 import { handleAdminLogin,handleAdminLogout,handleAdminSession } from '../api-lib/content/session.js';
+import { handleNotifyNewContent } from '../api-lib/content/notifications.js';
 import { handlePublicSeoPage } from '../api-lib/content/seoHandler.js';
 import { handlePublicSitemap } from '../api-lib/content/sitemap.js';
 import { isCronRequest, pingHeartbeat } from '../api-lib/heartbeat.js';
@@ -174,6 +175,10 @@ async function handler(req: any, res: any) {
     if (action === 'import') {
       await handleAdminImport(req, res);
       if (isCronRequest(req)) await pingHeartbeat();
+      return;
+    }
+    if (action === 'notify') {
+      await handleNotifyNewContent(req, res);
       return;
     }
     if (action === 'league') {
